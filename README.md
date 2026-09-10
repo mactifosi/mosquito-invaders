@@ -4,6 +4,11 @@ A Space Invaders–style arcade shooter. You fly a citronella craft along the bo
 screen and hold Sector 7 against descending waves of mosquitoes. React + Canvas, a custom
 `requestAnimationFrame` loop, and synthesized retro sound — no audio assets.
 
+**[▶ Play it](https://mactifosi.github.io/mosquito-invaders/)** — sound starts on your first
+click, as browsers require.
+
+To run it locally:
+
 ```bash
 npm install
 npm run dev      # http://localhost:5173
@@ -101,6 +106,21 @@ src/
 
 `mosquito-invaders.standalone.html` is the same game as one dependency-free HTML file —
 useful for a quick look without a build step, not part of the app.
+
+## Deployment
+
+Every push to `main` builds and publishes to GitHub Pages via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — Pages is served from the
+Actions artifact, so there's no `gh-pages` branch to maintain.
+
+- Live site: <https://mactifosi.github.io/mosquito-invaders/>
+- [Deploy runs](https://github.com/mactifosi/mosquito-invaders/actions/workflows/deploy.yml)
+
+Project Pages serve from a subpath, so `vite.config.js` sets `base` to
+`/mosquito-invaders/` when `GITHUB_ACTIONS` is set and leaves it at `/` for local dev; the
+router's `basename` follows `import.meta.env.BASE_URL`. Rename the repo and both need
+updating. There's no 404 fallback — fine for a single route, but adding routes means
+copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 
 ## Conventions
 
