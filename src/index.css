@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: #060409;
+    color: #efe6ff;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    /* The play field is pixel art — never let the browser smooth it. */
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+
+  /* Arrow keys and Space drive the game, not the page. */
+  body {
+    touch-action: manipulation;
+  }
+}
