@@ -18,6 +18,7 @@ export default function Overlay({
   highScore,
   scores,
   deathReason,
+  summary,
   species = [],
   onStart,
 }) {
@@ -25,6 +26,23 @@ export default function Overlay({
 
   const isReady = status === "ready";
   const isLevelUp = status === "levelup";
+  const isPaused = status === "paused";
+
+  // Paused is a light-touch screen: no leaderboard, nothing to read, one way out.
+  if (isPaused) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3.5 px-4 text-center bg-[#08050e]/[0.86] backdrop-blur-[2px]">
+        <h2 className="font-['Silkscreen',monospace] text-[clamp(17px,5.4vw,23px)] m-0 text-[#6fe3c0]">
+          PAUSED
+        </h2>
+        <p className="text-[11px] text-[#9a8cb4]">The swarm is holding position.</p>
+        <Button className={CTA} onClick={onStart}>
+          <Play className="w-3.5 h-3.5 mr-2" />
+          RESUME
+        </Button>
+      </div>
+    );
+  }
 
   const title = isReady ? "INSERT COIN" : isLevelUp ? "SWARM CLEARED" : deathReason === "landed" ? "THE SWARM LANDED" : "CRAFT DOWN";
   const titleTone = isReady
@@ -69,6 +87,23 @@ export default function Overlay({
         <Icon className="w-3.5 h-3.5 mr-2" />
         {cta}
       </Button>
+
+      {!isReady && !isLevelUp && summary && (
+        <dl className="w-full max-w-[260px] grid grid-cols-3 gap-px bg-[#33254a] border border-[#33254a] text-left">
+          {[
+            ["Wave", summary.wave],
+            ["Best streak", summary.bestStreak],
+            ["Accuracy", `${summary.accuracy}%`],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-[#170f22] px-2 py-1.5">
+              <dt className="text-[7.5px] tracking-[0.18em] uppercase text-[#9a8cb4]">{label}</dt>
+              <dd className="font-['Silkscreen',monospace] text-[13px] text-[#efe6ff] m-0 mt-0.5 tabular-nums">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       {isReady && species.length > 0 && (
         <div className="w-full max-w-[260px] border-t border-[#33254a] pt-2.5">

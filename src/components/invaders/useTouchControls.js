@@ -14,23 +14,30 @@ const KEY_MAP = {
  * it. Touch buttons drive the same ref through the returned `press` helper, so
  * the loop has exactly one input source regardless of device.
  *
- * @param {() => void} onConfirm  Space outside of play advances the overlay CTA
+ * @param {object} handlers
+ * @param {() => void} handlers.onConfirm  Space outside of play advances the CTA
+ * @param {() => void} handlers.onPause    P or Escape toggles pause
  */
-export function useTouchControls(onConfirm) {
+export function useTouchControls({ onConfirm, onPause } = {}) {
   const input = useRef({ left: false, right: false, fire: false });
-  const confirmRef = useRef(onConfirm);
+  const handlers = useRef({ onConfirm, onPause });
 
   useEffect(() => {
-    confirmRef.current = onConfirm;
-  }, [onConfirm]);
+    handlers.current = { onConfirm, onPause };
+  }, [onConfirm, onPause]);
 
   useEffect(() => {
     const isFire = (e) => e.key === " " || e.code === "Space";
 
     const down = (e) => {
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        handlers.current.onPause?.();
+        return;
+      }
       if (isFire(e)) {
         e.preventDefault();
-        if (!input.current.fire) confirmRef.current?.();
+        if (!input.current.fire) handlers.current.onConfirm?.();
         input.current.fire = true;
         return;
       }

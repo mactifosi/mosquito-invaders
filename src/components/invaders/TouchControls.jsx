@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crosshair, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BASE =
@@ -12,7 +12,7 @@ const BASE =
  * On-screen controls for touch devices. Held buttons write straight into the
  * input ref via `press`, matching keyboard behavior exactly.
  */
-export default function TouchControls({ press }) {
+export default function TouchControls({ press, onPause, paused }) {
   const hold = (control) => ({
     onPointerDown: (e) => {
       e.preventDefault();
@@ -24,7 +24,7 @@ export default function TouchControls({ press }) {
   });
 
   return (
-    <div className="grid grid-cols-[1fr_1fr_1.5fr] gap-2">
+    <div className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-2">
       <button type="button" aria-label="Move left" className={cn(BASE)} {...hold("left")}>
         <ChevronLeft className="w-5 h-5" />
       </button>
@@ -39,6 +39,14 @@ export default function TouchControls({ press }) {
       >
         <Crosshair className="w-4 h-4" />
         <span className="font-['Silkscreen',monospace] text-sm">FIRE</span>
+      </button>
+      <button
+        type="button"
+        aria-label={paused ? "Resume" : "Pause"}
+        className={cn(BASE, "px-3")}
+        onClick={onPause}
+      >
+        {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
       </button>
     </div>
   );

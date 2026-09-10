@@ -65,9 +65,11 @@ export const sfx = {
   laser() {
     tone("square", 880, 220, 0.12, 0.1);
   },
-  hit() {
+  /** Pitch climbs with the combo multiplier, so a streak sounds like one. */
+  hit(mult = 1) {
+    const step = Math.max(1, Math.min(5, mult));
     noise(0.1, 0.16);
-    tone("square", 300, 90, 0.1, 0.09);
+    tone("square", 300 * 1.12 ** (step - 1), 90, 0.1, 0.09);
   },
   loseLife() {
     tone("sawtooth", 300, 60, 0.5, 0.18);
@@ -90,6 +92,12 @@ export const sfx = {
   },
   levelClear() {
     [523, 659, 784, 1047].forEach((f, i) => tone("triangle", f, f, 0.16, 0.14, i * 0.1));
+  },
+  pause() {
+    tone("square", 420, 300, 0.12, 0.1);
+  },
+  resume() {
+    tone("square", 300, 460, 0.12, 0.1);
   },
   /** Ambient wingbeat — fires on formation step-down and on a timer. */
   wingHum() {

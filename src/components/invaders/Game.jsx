@@ -39,8 +39,30 @@ const RAPID_DURATION = 8;
 const TRIPLE_DURATION = 8;
 const MAX_LIVES = 5;
 
+/* Feel. Small numbers, disproportionate effect — tune these first. */
+const HIT_STOP = 0.045; // freeze frames on a kill, seconds
+const SHAKE_ON_HIT = 5; // px, player takes a bite
+const SHAKE_ON_SHIELD = 2.5; // px, shield absorbs it
+const SHAKE_DECAY = 14; // px per second
+const POPUP_LIFE = 0.7; // floating score, seconds
+const POPUP_RISE = 26; // px it drifts upward over its life
+
+/* Combo: consecutive kills without a miss. Resets on a shot that leaves the
+   top of the screen, on taking a hit, or after COMBO_WINDOW without a kill. */
+const COMBO_WINDOW = 2.0;
+const COMBO_MAX = 5;
+const COMBO_PER_STEP = 3; // kills needed to raise the multiplier one step
+
 const SIDE_MARGIN = (W - (COLS * ALIEN_W + (COLS - 1) * ALIEN_GAP_X)) / 2;
 const TOTAL_ALIENS = COLS * ROWS;
+
+/** Multiplier from a kill streak: 3 kills → ×2, 6 → ×3, capped at COMBO_MAX. */
+export const comboMultiplier = (streak) =>
+  Math.max(1, Math.min(COMBO_MAX, 1 + Math.floor(streak / COMBO_PER_STEP)));
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
 /** Row index → species. Body color also drives explosion particles. */
 export const SPECIES = [
@@ -106,12 +128,34 @@ export function makeLevel(level, score, lives) {
     ebullets: [],
     powerups: [],
     particles: [],
+    popups: [],
     motes,
     t: 0,
     enemyFireTimer: ALIEN_FIRE_INTERVAL,
     humTimer: 0,
     baseSpeed: 24 + (level - 1) * 8,
+    // Feel state. Streak carries across waves; hit-stop and shake never do.
+    streak: 0,
+    comboTimer: 0,
+    bestStreak: 0,
+    shotsFired: 0,
+    shotsHit: 0,
+    hitStop: 0,
+    shake: 0,
+    reduceMotion: prefersReducedMotion(),
   };
+}
+
+function spawnPopup(g, x, y, text, color) {
+  g.popups.push({ x, y, text, color, life: POPUP_LIFE });
+}
+
+/** A miss, a bite, or two quiet seconds — any of them ends the streak. */
+function breakCombo(g, cb) {
+  if (g.streak === 0) return;
+  g.streak = 0;
+  g.comboTimer = 0;
+  cb.onCombo(1);
 }
 
 const aliveCount = (g) => g.aliens.reduce((n, a) => n + (a.alive ? 1 : 0), 0);
@@ -158,8 +202,27 @@ function applyPowerup(g, type, cb) {
  * React through `cb` (onScore / onLives / onSwarm / onGameOver / onLevelClear).
  */
 export function update(dt, g, input, cb) {
+  // Hit-stop: hold the whole world still for a few frames on a kill, so the
+  // impact lands. Popups and shake keep animating in draw(); nothing else moves.
+  if (g.hitStop > 0) {
+    g.hitStop -= dt;
+    return;
+  }
+
   g.t += dt;
   const p = g.player;
+
+  if (g.shake > 0) g.shake = Math.max(0, g.shake - SHAKE_DECAY * dt);
+
+  for (let i = g.popups.length - 1; i >= 0; i--) {
+    g.popups[i].life -= dt;
+    if (g.popups[i].life <= 0) g.popups.splice(i, 1);
+  }
+
+  if (g.comboTimer > 0) {
+    g.comboTimer -= dt;
+    if (g.comboTimer <= 0) breakCombo(g, cb);
+  }
 
   for (const m of g.motes) {
     m.y += m.v * dt;
@@ -182,8 +245,10 @@ export function update(dt, g, input, cb) {
     const by = p.y - 6;
     if (g.t < p.tripleUntil) {
       g.bullets.push({ x: bx, y: by, vx: -120 }, { x: bx, y: by, vx: 0 }, { x: bx, y: by, vx: 120 });
+      g.shotsFired += 3;
     } else {
       g.bullets.push({ x: bx, y: by, vx: 0 });
+      g.shotsFired += 1;
     }
     sfx.laser();
   }
@@ -221,6 +286,7 @@ export function update(dt, g, input, cb) {
     b.x += (b.vx || 0) * dt;
     if (b.y < -8 || b.x < -8 || b.x > W + 8) {
       g.bullets.splice(i, 1);
+      breakCombo(g, cb); // a shot that hit nothing ends the streak
       continue;
     }
 
@@ -251,13 +317,30 @@ export function update(dt, g, input, cb) {
       if (b.x < ax + ALIEN_W && b.x + 3 > ax && b.y < ay + ALIEN_H && b.y + 7 > ay) {
         a.alive = false;
         a.flash = 0.12;
-        g.score += SPECIES[a.row].pts;
+        g.shotsHit += 1;
+
+        g.streak += 1;
+        g.bestStreak = Math.max(g.bestStreak, g.streak);
+        g.comboTimer = COMBO_WINDOW;
+        const mult = comboMultiplier(g.streak);
+        const points = SPECIES[a.row].pts * mult;
+        g.score += points;
         cb.onScore(g.score);
         cb.onSwarm(alive - 1);
+        cb.onCombo(mult);
+
+        spawnPopup(
+          g,
+          ax + ALIEN_W / 2,
+          ay,
+          mult > 1 ? `+${points} ×${mult}` : `+${points}`,
+          mult > 1 ? "#ffb02e" : "#efe6ff"
+        );
         spawnExplosion(g, ax + ALIEN_W / 2, ay + ALIEN_H / 2, SPECIES[a.row].body);
         if (Math.random() < POWERUP_CHANCE) spawnPowerup(g, ax + ALIEN_W / 2, ay);
         g.bullets.splice(i, 1);
-        sfx.hit();
+        g.hitStop = HIT_STOP;
+        sfx.hit(mult);
         break;
       }
     }
@@ -289,11 +372,14 @@ export function update(dt, g, input, cb) {
       g.ebullets.splice(i, 1);
       if (p.shield) {
         p.shield = false;
+        g.shake = Math.max(g.shake, SHAKE_ON_SHIELD);
         spawnExplosion(g, b.x, b.y, POWERUP_COLORS.shield);
         sfx.shieldBreak();
       } else {
         g.lives -= 1;
         p.hitFlash = 0.5;
+        g.shake = Math.max(g.shake, SHAKE_ON_HIT);
+        breakCombo(g, cb);
         cb.onLives(g.lives);
         spawnExplosion(g, p.x + PLAYER_W / 2, p.y, "#ffb02e");
         sfx.loseLife();
@@ -448,12 +534,50 @@ function drawBoostTags(ctx, g) {
   }
 }
 
+/** Floating score, drifting up and fading as its life runs out. */
+function drawPopups(ctx, g) {
+  ctx.font = "bold 9px 'IBM Plex Mono', monospace";
+  ctx.textAlign = "center";
+  for (const s of g.popups) {
+    const f = s.life / POPUP_LIFE;
+    ctx.globalAlpha = Math.min(1, f * 1.6);
+    ctx.fillStyle = s.color;
+    ctx.fillText(s.text, s.x, s.y - (1 - f) * POPUP_RISE);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "left";
+}
+
+/** Live combo multiplier, top-right, pulsing on the beat of each kill. */
+function drawCombo(ctx, g) {
+  const mult = comboMultiplier(g.streak);
+  if (mult < 2) return;
+  const fade = Math.min(1, g.comboTimer / 0.5);
+  ctx.globalAlpha = fade;
+  ctx.font = "bold 15px 'Silkscreen', monospace";
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#ffb02e";
+  ctx.fillText(`×${mult}`, W - 8, 21);
+  ctx.font = "7px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = "#9a8cb4";
+  ctx.fillText(`${g.streak} STREAK`, W - 8, 31);
+  ctx.textAlign = "left";
+  ctx.globalAlpha = 1;
+}
+
 export function draw(canvas, g) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#0b0910";
   ctx.fillRect(0, 0, W, H);
   if (!g) return;
+
+  // Screen shake: offset everything except the ground already painted.
+  const shaking = g.shake > 0.1 && !g.reduceMotion;
+  if (shaking) {
+    ctx.save();
+    ctx.translate((Math.random() - 0.5) * 2 * g.shake, (Math.random() - 0.5) * 2 * g.shake);
+  }
 
   for (const m of g.motes) {
     ctx.fillStyle = m.s > 1 ? "rgba(167,139,250,.28)" : "rgba(239,230,255,.14)";
@@ -488,7 +612,13 @@ export function draw(canvas, g) {
   ctx.globalAlpha = 1;
 
   drawPlayer(ctx, g);
+  drawPopups(ctx, g);
+
+  if (shaking) ctx.restore();
+
+  // HUD-ish overlays stay steady while the world shakes.
   drawBoostTags(ctx, g);
+  drawCombo(ctx, g);
 }
 
 /* ───────────────────────── component ───────────────────────── */
@@ -502,6 +632,8 @@ export default function Game() {
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
   const [swarm, setSwarm] = useState(TOTAL_ALIENS);
+  const [combo, setCombo] = useState(1);
+  const [summary, setSummary] = useState(null);
   const [deathReason, setDeathReason] = useState("shot");
   const [scores, setScores] = useState(() => loadScores());
   const [highScore, setHighScore] = useState(() => getHighScore());
@@ -539,6 +671,8 @@ export default function Game() {
     setLives(3);
     setLevel(1);
     setSwarm(TOTAL_ALIENS);
+    setCombo(1);
+    setSummary(null);
     setStatus("playing");
   }, []);
 
@@ -547,19 +681,51 @@ export default function Game() {
     const prev = game.current;
     const next = makeLevel(prev.level + 1, prev.score, prev.lives);
     next.player.shield = prev.player.shield; // an unbroken shield carries over
+    // Run stats span the whole run, not one wave.
+    next.bestStreak = prev.bestStreak;
+    next.shotsFired = prev.shotsFired;
+    next.shotsHit = prev.shotsHit;
     game.current = next;
     setLevel(next.level);
     setSwarm(TOTAL_ALIENS);
+    setCombo(1);
     setStatus("playing");
   }, []);
 
-  const onStart = useCallback(() => {
-    if (statusRef.current === "levelup") nextLevel();
-    else startGame();
-  }, [nextLevel, startGame]);
+  const togglePause = useCallback(() => {
+    if (statusRef.current === "playing") {
+      sfx.pause();
+      setStatus("paused");
+    } else if (statusRef.current === "paused") {
+      sfx.resume();
+      setStatus("playing");
+    }
+  }, []);
 
-  const { input, press } = useTouchControls(() => {
-    if (statusRef.current !== "playing") onStart();
+  const onStart = useCallback(() => {
+    if (statusRef.current === "paused") togglePause();
+    else if (statusRef.current === "levelup") nextLevel();
+    else startGame();
+  }, [nextLevel, startGame, togglePause]);
+
+  // A call, an app switch, or a locked screen must not cost the player a run.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.hidden && statusRef.current === "playing") setStatus("paused");
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
+    };
+  }, []);
+
+  const { input, press } = useTouchControls({
+    onConfirm: () => {
+      if (statusRef.current !== "playing") onStart();
+    },
+    onPause: togglePause,
   });
 
   const callbacks = useRef({});
@@ -567,12 +733,20 @@ export default function Game() {
     onScore: setScore,
     onLives: setLives,
     onSwarm: setSwarm,
+    onCombo: setCombo,
     onLevelClear: () => {
       setStatus("levelup");
       sfx.levelClear();
     },
     onGameOver: (reason) => {
-      const finalScore = game.current.score;
+      const g = game.current;
+      const finalScore = g.score;
+      const fired = g.shotsFired || 0;
+      setSummary({
+        wave: g.level,
+        bestStreak: g.bestStreak,
+        accuracy: fired ? Math.round(((g.shotsHit || 0) / fired) * 100) : 0,
+      });
       setDeathReason(reason);
       setLives(0);
       setStatus("gameover");
@@ -626,6 +800,7 @@ export default function Game() {
           status={status}
           score={score}
           level={level}
+          summary={summary}
           highScore={highScore}
           scores={scores}
           deathReason={deathReason}
@@ -634,11 +809,11 @@ export default function Game() {
         />
       </div>
 
-      <TouchControls press={press} />
+      <TouchControls press={press} onPause={togglePause} paused={status === "paused"} />
 
       <p className="text-[10px] leading-relaxed text-[#9a8cb4] text-center">
-        ← → or A · D to fly, Space to fire. Shooting a falling power-up destroys it — catch it
-        instead.
+        ← → or A · D to fly, Space to fire, P to pause. Chain kills without missing to raise the
+        multiplier; shooting a falling power-up destroys it.
       </p>
     </div>
   );
