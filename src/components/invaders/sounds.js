@@ -93,6 +93,14 @@ export const sfx = {
   levelClear() {
     [523, 659, 784, 1047].forEach((f, i) => tone("triangle", f, f, 0.16, 0.14, i * 0.1));
   },
+  /** A diver peeling off: a rising whine you learn to dread. */
+  dive() {
+    tone("sawtooth", 180, 620, 0.42, 0.09);
+  },
+  /** A shot burying itself in a bunker. */
+  thud() {
+    noise(0.06, 0.1);
+  },
   pause() {
     tone("square", 420, 300, 0.12, 0.1);
   },

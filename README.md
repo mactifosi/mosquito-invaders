@@ -32,6 +32,15 @@ You lose a life to an enemy bite, and the run ends immediately if any mosquito r
 craft's altitude, however many lives are left. Clearing a wave advances the level: the
 formation starts faster and fires sooner.
 
+**Cover.** Four bunkers stand between you and the swarm. They erode cell by cell from
+either side — enemy fire chews them from above, *your own shots chew them from below*, and
+anything that flies into one grinds it away. Each wave issues fresh cover.
+
+**Divers.** From wave 3, mosquitoes break formation and swoop at the craft, steering toward
+you with a wobble and trailing red. A diver that connects costs a life; shooting one down
+pays double. They ignore the formation entirely, so a diver below your craft is not a
+swarm landing.
+
 Row determines species and value:
 
 | Row | Species | Points |

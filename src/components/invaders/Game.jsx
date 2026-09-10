@@ -47,6 +47,27 @@ const SHAKE_DECAY = 14; // px per second
 const POPUP_LIFE = 0.7; // floating score, seconds
 const POPUP_RISE = 26; // px it drifts upward over its life
 
+/* Bunkers: four eroding shields between the swarm and the craft. Each is a
+   grid of 4px cells; every bullet that lands chews a small crater. */
+const BUNKER_COUNT = 4;
+const BUNKER_COLS = 11;
+const BUNKER_ROWS = 6;
+const BUNKER_CELL = 4;
+const BUNKER_W = BUNKER_COLS * BUNKER_CELL;
+const BUNKER_H = BUNKER_ROWS * BUNKER_CELL;
+const BUNKER_Y = PLAYER_Y - 66;
+
+/* Divers: mosquitoes that break formation and swoop, which is what mosquitoes
+   actually do. They arrive from wave DIVE_FROM_LEVEL and are worth double. */
+const DIVE_FROM_LEVEL = 3;
+const DIVE_MAX_ACTIVE = 2;
+const DIVE_INTERVAL = 4.5; // seconds, shortens with the level
+const DIVE_ACCEL = 150;
+const DIVE_SPEED_MAX = 190;
+const DIVE_TRACK = 1.4; // how hard it steers toward the craft
+const DIVE_TRACK_MAX = 95;
+const DIVE_BONUS = 2; // points multiplier for killing one mid-dive
+
 /* Combo: consecutive kills without a miss. Resets on a shot that leaves the
    top of the screen, on taking a hit, or after COMBO_WINDOW without a kill. */
 const COMBO_WINDOW = 2.0;
@@ -83,6 +104,69 @@ const POWERUP_LETTERS = { rapid: "R", triple: "T", shield: "S", life: "+" };
 /* ───────────────────────── model ───────────────────────── */
 
 /**
+ * Four bunkers, each an arch of 4px cells. Cell value 1 is intact, 0 is gone —
+ * bullets from either side chew craters until there's nothing left to hide behind.
+ */
+export function makeBunkers() {
+  const bunkers = [];
+  const lane = W / BUNKER_COUNT;
+  for (let i = 0; i < BUNKER_COUNT; i++) {
+    const cells = new Uint8Array(BUNKER_COLS * BUNKER_ROWS).fill(1);
+    for (let r = 0; r < BUNKER_ROWS; r++) {
+      for (let c = 0; c < BUNKER_COLS; c++) {
+        const topCorner = r < 2 && (c < 2 - r || c > BUNKER_COLS - 3 + r);
+        const doorway = r >= BUNKER_ROWS - 2 && c >= 4 && c <= 6;
+        if (topCorner || doorway) cells[r * BUNKER_COLS + c] = 0;
+      }
+    }
+    bunkers.push({ x: Math.round(lane * (i + 0.5) - BUNKER_W / 2), y: BUNKER_Y, cells });
+  }
+  return bunkers;
+}
+
+/** Chew a crater at a point. Returns true if anything was actually there. */
+function erodeBunker(b, px, py, radius = 1) {
+  const c0 = Math.floor((px - b.x) / BUNKER_CELL);
+  const r0 = Math.floor((py - b.y) / BUNKER_CELL);
+  if (c0 < 0 || r0 < 0 || c0 >= BUNKER_COLS || r0 >= BUNKER_ROWS) return false;
+  if (!b.cells[r0 * BUNKER_COLS + c0]) return false;
+
+  for (let r = r0 - radius; r <= r0 + radius; r++) {
+    for (let c = c0 - radius; c <= c0 + radius; c++) {
+      if (r < 0 || c < 0 || r >= BUNKER_ROWS || c >= BUNKER_COLS) continue;
+      // Ragged edge: corners of the blast survive sometimes.
+      if (Math.abs(r - r0) + Math.abs(c - c0) > radius && Math.random() < 0.5) continue;
+      b.cells[r * BUNKER_COLS + c] = 0;
+    }
+  }
+  return true;
+}
+
+/**
+ * Bullets move up to 7px a frame and cells are 4px, so test along the path
+ * rather than at the endpoint — otherwise fast shots tunnel through.
+ */
+function bulletHitsBunker(g, fromX, fromY, toX, toY) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(toX - fromX, toY - fromY) / 2));
+  for (let i = 0; i <= steps; i++) {
+    const px = fromX + ((toX - fromX) * i) / steps;
+    const py = fromY + ((toY - fromY) * i) / steps;
+    for (const b of g.bunkers) {
+      if (px < b.x || px > b.x + BUNKER_W || py < b.y || py > b.y + BUNKER_H) continue;
+      if (erodeBunker(b, px, py)) return true;
+    }
+  }
+  return false;
+}
+
+/** Where an alien actually is: its dive position, or its slot in the formation. */
+export function alienPos(g, a) {
+  return a.dive
+    ? { x: a.dive.x, y: a.dive.y }
+    : { x: g.formationX + a.x, y: g.formationY + a.y };
+}
+
+/**
  * Builds the mutable state for one wave. Everything per-frame lives here, in a
  * ref — never in React state, which would thrash at 60fps.
  */
@@ -96,6 +180,7 @@ export function makeLevel(level, score, lives) {
         row: r,
         alive: true,
         flash: 0,
+        dive: null,
       });
     }
   }
@@ -121,6 +206,8 @@ export function makeLevel(level, score, lives) {
       hitFlash: 0,
     },
     aliens,
+    bunkers: makeBunkers(),
+    diveTimer: DIVE_INTERVAL,
     formationX: SIDE_MARGIN,
     formationY: ALIEN_TOP,
     dir: 1,
@@ -279,14 +366,94 @@ export function update(dt, g, input, cb) {
 
   for (const a of g.aliens) if (a.flash > 0) a.flash -= dt;
 
+  /* ---- divers: break formation and swoop at the craft ---- */
+  if (g.level >= DIVE_FROM_LEVEL) {
+    g.diveTimer -= dt;
+    const active = g.aliens.filter((a) => a.alive && a.dive).length;
+    if (g.diveTimer <= 0 && active < DIVE_MAX_ACTIVE) {
+      // Prefer the front rank — the ones with a clear run at the player.
+      const ready = g.aliens.filter((a) => a.alive && !a.dive);
+      if (ready.length) {
+        const front = ready.filter((a) => a.row >= ROWS - 2);
+        const pool = front.length ? front : ready;
+        const a = pool[Math.floor(Math.random() * pool.length)];
+        const pos = alienPos(g, a);
+        a.dive = { x: pos.x, y: pos.y, vx: 0, vy: 40, t: 0 };
+        sfx.dive();
+      }
+      g.diveTimer = Math.max(1.6, DIVE_INTERVAL - (g.level - DIVE_FROM_LEVEL) * 0.45);
+    }
+  }
+
+  for (const a of g.aliens) {
+    if (!a.alive || !a.dive) continue;
+    const d = a.dive;
+    d.t += dt;
+    d.vy = Math.min(DIVE_SPEED_MAX, d.vy + DIVE_ACCEL * dt);
+    // Steer toward the craft, with a wobble so the path isn't a straight line.
+    const toPlayer = p.x + PLAYER_W / 2 - (d.x + ALIEN_W / 2);
+    d.vx = Math.max(-DIVE_TRACK_MAX, Math.min(DIVE_TRACK_MAX, toPlayer * DIVE_TRACK));
+    d.x += (d.vx + Math.sin(d.t * 7) * 40) * dt;
+    d.y += d.vy * dt;
+    d.x = Math.max(0, Math.min(W - ALIEN_W, d.x));
+
+    // Divers chew through cover on the way past.
+    for (const b of g.bunkers) {
+      if (d.x + ALIEN_W < b.x || d.x > b.x + BUNKER_W) continue;
+      if (d.y + ALIEN_H < b.y || d.y > b.y + BUNKER_H) continue;
+      erodeBunker(b, d.x + ALIEN_W / 2, d.y + ALIEN_H / 2, 2);
+    }
+
+    // Collision with the craft: same cost as a bite, and the diver is spent.
+    if (
+      d.x < p.x + PLAYER_W && d.x + ALIEN_W > p.x &&
+      d.y < p.y + PLAYER_H && d.y + ALIEN_H > p.y
+    ) {
+      a.alive = false;
+      a.dive = null;
+      cb.onSwarm(aliveCount(g));
+      spawnExplosion(g, p.x + PLAYER_W / 2, p.y, SPECIES[a.row].body);
+      if (p.shield) {
+        p.shield = false;
+        g.shake = Math.max(g.shake, SHAKE_ON_SHIELD);
+        sfx.shieldBreak();
+      } else {
+        g.lives -= 1;
+        p.hitFlash = 0.5;
+        g.shake = Math.max(g.shake, SHAKE_ON_HIT);
+        breakCombo(g, cb);
+        cb.onLives(g.lives);
+        sfx.loseLife();
+        if (g.lives <= 0) {
+          cb.onGameOver("swarmed");
+          return;
+        }
+      }
+      continue;
+    }
+
+    // Off the bottom: it loops around and rejoins its slot in the formation.
+    if (d.y > H + ALIEN_H) a.dive = null;
+  }
+
   /* ---- player bullets ---- */
   for (let i = g.bullets.length - 1; i >= 0; i--) {
     const b = g.bullets[i];
+    const fromX = b.x;
+    const fromY = b.y;
     b.y -= BULLET_SPEED * dt;
     b.x += (b.vx || 0) * dt;
     if (b.y < -8 || b.x < -8 || b.x > W + 8) {
       g.bullets.splice(i, 1);
       breakCombo(g, cb); // a shot that hit nothing ends the streak
+      continue;
+    }
+
+    // Your own cover stops your shots — that's the trade.
+    if (bulletHitsBunker(g, fromX, fromY, b.x, b.y)) {
+      g.bullets.splice(i, 1);
+      breakCombo(g, cb);
+      sfx.thud();
       continue;
     }
 
@@ -312,8 +479,7 @@ export function update(dt, g, input, cb) {
 
     for (const a of g.aliens) {
       if (!a.alive) continue;
-      const ax = g.formationX + a.x;
-      const ay = g.formationY + a.y;
+      const { x: ax, y: ay } = alienPos(g, a);
       if (b.x < ax + ALIEN_W && b.x + 3 > ax && b.y < ay + ALIEN_H && b.y + 7 > ay) {
         a.alive = false;
         a.flash = 0.12;
@@ -323,7 +489,9 @@ export function update(dt, g, input, cb) {
         g.bestStreak = Math.max(g.bestStreak, g.streak);
         g.comboTimer = COMBO_WINDOW;
         const mult = comboMultiplier(g.streak);
-        const points = SPECIES[a.row].pts * mult;
+        const diving = Boolean(a.dive);
+        a.dive = null;
+        const points = SPECIES[a.row].pts * mult * (diving ? DIVE_BONUS : 1);
         g.score += points;
         cb.onScore(g.score);
         cb.onSwarm(alive - 1);
@@ -333,8 +501,8 @@ export function update(dt, g, input, cb) {
           g,
           ax + ALIEN_W / 2,
           ay,
-          mult > 1 ? `+${points} ×${mult}` : `+${points}`,
-          mult > 1 ? "#ffb02e" : "#efe6ff"
+          diving ? `+${points} DIVE` : mult > 1 ? `+${points} ×${mult}` : `+${points}`,
+          diving ? "#6fe3c0" : mult > 1 ? "#ffb02e" : "#efe6ff"
         );
         spawnExplosion(g, ax + ALIEN_W / 2, ay + ALIEN_H / 2, SPECIES[a.row].body);
         if (Math.random() < POWERUP_CHANCE) spawnPowerup(g, ax + ALIEN_W / 2, ay);
@@ -363,9 +531,15 @@ export function update(dt, g, input, cb) {
 
   for (let i = g.ebullets.length - 1; i >= 0; i--) {
     const b = g.ebullets[i];
+    const fromY = b.y;
     b.y += ALIEN_BULLET_SPEED * dt;
     if (b.y > H + 8) {
       g.ebullets.splice(i, 1);
+      continue;
+    }
+    if (bulletHitsBunker(g, b.x, fromY, b.x, b.y)) {
+      g.ebullets.splice(i, 1);
+      sfx.thud();
       continue;
     }
     if (b.x < p.x + PLAYER_W && b.x + 3 > p.x && b.y < p.y + PLAYER_H && b.y + 8 > p.y) {
@@ -428,9 +602,21 @@ export function update(dt, g, input, cb) {
     g.humTimer = 1.6 - Math.min(1.1, g.formationY / H);
   }
 
+  /* ---- the swarm grinds down whatever cover it reaches ---- */
+  for (const a of g.aliens) {
+    if (!a.alive || a.dive) continue;
+    const ax = g.formationX + a.x;
+    const ay = g.formationY + a.y;
+    if (ay + ALIEN_H < BUNKER_Y || ay > BUNKER_Y + BUNKER_H) continue;
+    for (const b of g.bunkers) {
+      if (ax + ALIEN_W < b.x || ax > b.x + BUNKER_W) continue;
+      erodeBunker(b, ax + ALIEN_W / 2, ay + ALIEN_H / 2, 2);
+    }
+  }
+
   /* ---- end conditions ---- */
   for (const a of g.aliens) {
-    if (a.alive && g.formationY + a.y + ALIEN_H >= p.y) {
+    if (a.alive && !a.dive && g.formationY + a.y + ALIEN_H >= p.y) {
       cb.onGameOver("landed");
       return;
     }
@@ -440,8 +626,13 @@ export function update(dt, g, input, cb) {
 
 /* ───────────────────────── draw ───────────────────────── */
 
-function drawMosquito(ctx, x, y, color, flash, t, row) {
-  const wing = Math.sin(t * 26 + row * 1.7) * 1.6;
+function drawMosquito(ctx, x, y, color, flash, t, row, diving = false) {
+  const wing = Math.sin(t * (diving ? 46 : 26) + row * 1.7) * (diving ? 2.4 : 1.6);
+  if (diving) {
+    // A faint smear behind it, so a swooping mosquito is never a surprise.
+    ctx.fillStyle = "rgba(224,56,79,.22)";
+    ctx.fillRect(x + 6, y - 7, ALIEN_W - 12, 7);
+  }
   ctx.fillStyle = "rgba(200,225,255,.26)";
   ctx.fillRect(x + 2, y + 2 + wing, 7, 4);
   ctx.fillRect(x + ALIEN_W - 9, y + 2 - wing, 7, 4);
@@ -534,6 +725,20 @@ function drawBoostTags(ctx, g) {
   }
 }
 
+/** Bunkers, drawn cell by cell. Thinning cover reads as a fraying silhouette. */
+function drawBunkers(ctx, g) {
+  for (const b of g.bunkers) {
+    for (let r = 0; r < BUNKER_ROWS; r++) {
+      for (let c = 0; c < BUNKER_COLS; c++) {
+        if (!b.cells[r * BUNKER_COLS + c]) continue;
+        // Top rows sit slightly brighter, so erosion is legible at a glance.
+        ctx.fillStyle = r < 2 ? "#4f7f68" : "#3c6450";
+        ctx.fillRect(b.x + c * BUNKER_CELL, b.y + r * BUNKER_CELL, BUNKER_CELL, BUNKER_CELL);
+      }
+    }
+  }
+}
+
 /** Floating score, drifting up and fading as its life runs out. */
 function drawPopups(ctx, g) {
   ctx.font = "bold 9px 'IBM Plex Mono', monospace";
@@ -588,9 +793,12 @@ export function draw(canvas, g) {
   ctx.fillStyle = "rgba(224,56,79,.22)";
   for (let x = 0; x < W; x += 8) ctx.fillRect(x, g.player.y - 1, 4, 1);
 
+  drawBunkers(ctx, g);
+
   for (const a of g.aliens) {
     if (!a.alive) continue;
-    drawMosquito(ctx, g.formationX + a.x, g.formationY + a.y, SPECIES[a.row].body, a.flash > 0, g.t, a.row);
+    const { x: ax, y: ay } = alienPos(g, a);
+    drawMosquito(ctx, ax, ay, SPECIES[a.row].body, a.flash > 0, g.t, a.row, Boolean(a.dive));
   }
 
   ctx.fillStyle = "#ffe9b8";

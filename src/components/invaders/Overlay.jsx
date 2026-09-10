@@ -44,7 +44,15 @@ export default function Overlay({
     );
   }
 
-  const title = isReady ? "INSERT COIN" : isLevelUp ? "SWARM CLEARED" : deathReason === "landed" ? "THE SWARM LANDED" : "CRAFT DOWN";
+  const title = isReady
+    ? "INSERT COIN"
+    : isLevelUp
+    ? "SWARM CLEARED"
+    : deathReason === "landed"
+    ? "THE SWARM LANDED"
+    : deathReason === "swarmed"
+    ? "TAKEN DOWN MID-AIR"
+    : "CRAFT DOWN";
   const titleTone = isReady
     ? "text-[#ffb02e]"
     : isLevelUp
