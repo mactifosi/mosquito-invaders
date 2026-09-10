@@ -20,6 +20,8 @@ export default function Overlay({
   deathReason,
   summary,
   species = [],
+  bossCleared = false,
+  bossNext = false,
   onStart,
 }) {
   if (status === "playing") return null;
@@ -47,7 +49,9 @@ export default function Overlay({
   const title = isReady
     ? "INSERT COIN"
     : isLevelUp
-    ? "SWARM CLEARED"
+    ? bossCleared
+      ? "THE QUEEN IS DOWN"
+      : "SWARM CLEARED"
     : deathReason === "landed"
     ? "THE SWARM LANDED"
     : deathReason === "swarmed"
@@ -79,8 +83,17 @@ export default function Overlay({
         {isLevelUp && (
           <>
             Wave {level} repelled.{" "}
-            <b className="text-[#efe6ff] font-semibold">Wave {level + 1}</b> flies faster and bites
-            sooner.
+            {bossNext ? (
+              <>
+                <b className="text-[#e0384f] font-semibold">Wave {level + 1} is a queen</b> — she
+                seeds brood and takes a lot of killing.
+              </>
+            ) : (
+              <>
+                <b className="text-[#efe6ff] font-semibold">Wave {level + 1}</b> flies faster and
+                bites sooner.
+              </>
+            )}
           </>
         )}
         {!isReady && !isLevelUp && (

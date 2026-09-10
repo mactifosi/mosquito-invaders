@@ -101,6 +101,15 @@ export const sfx = {
   thud() {
     noise(0.06, 0.1);
   },
+  /** Chipping away at the queen: lower and heavier than a normal hit. */
+  bossHit() {
+    noise(0.07, 0.12);
+    tone("square", 150, 70, 0.09, 0.1);
+  },
+  bossDown() {
+    [196, 262, 330, 392, 523].forEach((f, i) => tone("triangle", f, f, 0.2, 0.15, i * 0.12));
+    noise(0.6, 0.2);
+  },
   pause() {
     tone("square", 420, 300, 0.12, 0.1);
   },

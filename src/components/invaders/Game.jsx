@@ -68,6 +68,24 @@ const DIVE_TRACK = 1.4; // how hard it steers toward the craft
 const DIVE_TRACK_MAX = 95;
 const DIVE_BONUS = 2; // points multiplier for killing one mid-dive
 
+/* Boss waves: every BOSS_EVERY levels the formation is replaced by a queen who
+   sits at the top, seeds brood that dive, and has to be worn down. */
+const BOSS_EVERY = 4;
+const BOSS_W = 64;
+const BOSS_H = 34;
+const BOSS_HP_BASE = 28;
+const BOSS_HP_STEP = 8; // per boss tier
+const BOSS_SPEED = 46;
+const BOSS_DESCENT = 1.6; // px/sec of slow, relentless creep
+const BOSS_FIRE_INTERVAL = 1.5;
+const BOSS_BROOD_INTERVAL = 3.4;
+const BOSS_BROOD_MAX = 3;
+const BOSS_HIT_POINTS = 5; // chip damage pays a little
+const BOSS_KILL_POINTS = 500;
+
+/** Every 4th wave is the queen. */
+export const isBossLevel = (level) => level % BOSS_EVERY === 0;
+
 /* Combo: consecutive kills without a miss. Resets on a shot that leaves the
    top of the screen, on taking a hit, or after COMBO_WINDOW without a kill. */
 const COMBO_WINDOW = 2.0;
@@ -159,6 +177,14 @@ function bulletHitsBunker(g, fromX, fromY, toX, toY) {
   return false;
 }
 
+/** A brood mosquito: born mid-air, dives once, and never joins a formation. */
+function spawnBrood(g, x, y) {
+  g.aliens.push({
+    x: 0, y: 0, row: ROWS - 1, alive: true, flash: 0, brood: true,
+    dive: { x, y, vx: 0, vy: 50, t: 0 },
+  });
+}
+
 /** Where an alien actually is: its dive position, or its slot in the formation. */
 export function alienPos(g, a) {
   return a.dive
@@ -171,8 +197,21 @@ export function alienPos(g, a) {
  * ref — never in React state, which would thrash at 60fps.
  */
 export function makeLevel(level, score, lives) {
+  const boss = isBossLevel(level)
+    ? {
+        x: W / 2 - BOSS_W / 2,
+        y: 44,
+        vx: BOSS_SPEED,
+        hp: BOSS_HP_BASE + (Math.floor(level / BOSS_EVERY) - 1) * BOSS_HP_STEP,
+        maxHp: BOSS_HP_BASE + (Math.floor(level / BOSS_EVERY) - 1) * BOSS_HP_STEP,
+        flash: 0,
+        fireTimer: BOSS_FIRE_INTERVAL,
+        broodTimer: 1.6,
+      }
+    : null;
+
   const aliens = [];
-  for (let r = 0; r < ROWS; r++) {
+  for (let r = 0; r < ROWS && !boss; r++) {
     for (let c = 0; c < COLS; c++) {
       aliens.push({
         x: c * (ALIEN_W + ALIEN_GAP_X),
@@ -206,6 +245,7 @@ export function makeLevel(level, score, lives) {
       hitFlash: 0,
     },
     aliens,
+    boss,
     bunkers: makeBunkers(),
     diveTimer: DIVE_INTERVAL,
     formationX: SIDE_MARGIN,
@@ -229,6 +269,10 @@ export function makeLevel(level, score, lives) {
     shotsHit: 0,
     hitStop: 0,
     shake: 0,
+    // Latched once the wave or run is over. React needs a frame or two to flip
+    // status, and without this the loop re-fires onLevelClear / onGameOver every
+    // frame in between — overlapping the jingle and saving the score repeatedly.
+    ended: false,
     reduceMotion: prefersReducedMotion(),
   };
 }
@@ -289,6 +333,8 @@ function applyPowerup(g, type, cb) {
  * React through `cb` (onScore / onLives / onSwarm / onGameOver / onLevelClear).
  */
 export function update(dt, g, input, cb) {
+  if (g.ended) return;
+
   // Hit-stop: hold the whole world still for a few frames on a kill, so the
   // impact lands. Popups and shake keep animating in draw(); nothing else moves.
   if (g.hitStop > 0) {
@@ -348,7 +394,7 @@ export function update(dt, g, input, cb) {
   let minX = Infinity;
   let maxX = -Infinity;
   for (const a of g.aliens) {
-    if (!a.alive) continue;
+    if (!a.alive || a.dive) continue; // brood and divers aren't in formation
     minX = Math.min(minX, g.formationX + a.x);
     maxX = Math.max(maxX, g.formationX + a.x + ALIEN_W);
   }
@@ -425,6 +471,7 @@ export function update(dt, g, input, cb) {
         cb.onLives(g.lives);
         sfx.loseLife();
         if (g.lives <= 0) {
+          g.ended = true;
           cb.onGameOver("swarmed");
           return;
         }
@@ -432,8 +479,66 @@ export function update(dt, g, input, cb) {
       continue;
     }
 
-    // Off the bottom: it loops around and rejoins its slot in the formation.
-    if (d.y > H + ALIEN_H) a.dive = null;
+    // Off the bottom: brood are spent, formation mosquitoes rejoin their slot.
+    if (d.y > H + ALIEN_H) {
+      if (a.brood) {
+        a.alive = false;
+        a.dive = null;
+        cb.onSwarm(aliveCount(g));
+      } else {
+        a.dive = null;
+      }
+    }
+  }
+
+  /* ---- the queen ---- */
+  if (g.boss) {
+    const boss = g.boss;
+    if (boss.flash > 0) boss.flash -= dt;
+
+    boss.x += boss.vx * dt;
+    if (boss.x < 4) {
+      boss.x = 4;
+      boss.vx = Math.abs(boss.vx);
+    } else if (boss.x > W - BOSS_W - 4) {
+      boss.x = W - BOSS_W - 4;
+      boss.vx = -Math.abs(boss.vx);
+    }
+    boss.y += BOSS_DESCENT * dt;
+
+    // She fires faster the more damage she has taken.
+    const urgency = 1 - (boss.hp / boss.maxHp) * 0.55;
+    boss.fireTimer -= dt;
+    if (boss.fireTimer <= 0) {
+      const cx = boss.x + BOSS_W / 2 - 1.5;
+      const by = boss.y + BOSS_H;
+      g.ebullets.push({ x: cx - 14, y: by }, { x: cx, y: by }, { x: cx + 14, y: by });
+      boss.fireTimer = BOSS_FIRE_INTERVAL * urgency * (0.8 + Math.random() * 0.4);
+    }
+
+    boss.broodTimer -= dt;
+    if (boss.broodTimer <= 0) {
+      const brood = g.aliens.filter((a) => a.alive && a.brood).length;
+      if (brood < BOSS_BROOD_MAX) {
+        spawnBrood(g, boss.x + BOSS_W / 2 - ALIEN_W / 2, boss.y + BOSS_H - 6);
+        cb.onSwarm(aliveCount(g));
+        sfx.dive();
+      }
+      boss.broodTimer = BOSS_BROOD_INTERVAL * urgency;
+    }
+
+    // She grinds cover away as she descends onto it.
+    for (const b of g.bunkers) {
+      if (boss.x + BOSS_W < b.x || boss.x > b.x + BUNKER_W) continue;
+      if (boss.y + BOSS_H < b.y || boss.y > b.y + BUNKER_H) continue;
+      erodeBunker(b, Math.max(b.x, Math.min(boss.x + BOSS_W / 2, b.x + BUNKER_W)), b.y + 2, 3);
+    }
+
+    if (boss.y + BOSS_H >= p.y) {
+      g.ended = true;
+      cb.onGameOver("landed");
+      return;
+    }
   }
 
   /* ---- player bullets ---- */
@@ -477,6 +582,45 @@ export function update(dt, g, input, cb) {
     }
     if (consumed) continue;
 
+    if (g.boss) {
+      const boss = g.boss;
+      if (
+        b.x < boss.x + BOSS_W && b.x + 3 > boss.x &&
+        b.y < boss.y + BOSS_H && b.y + 7 > boss.y
+      ) {
+        boss.hp -= 1;
+        boss.flash = 0.08;
+        g.score += BOSS_HIT_POINTS;
+        cb.onScore(g.score);
+        spawnExplosion(g, b.x, b.y, "#e0384f");
+        g.bullets.splice(i, 1);
+
+        if (boss.hp <= 0) {
+          const mult = comboMultiplier(g.streak);
+          const points = BOSS_KILL_POINTS * mult;
+          g.score += points;
+          cb.onScore(g.score);
+          spawnPopup(g, boss.x + BOSS_W / 2, boss.y + 8, `QUEEN +${points}`, "#6fe3c0");
+          for (let k = 0; k < 5; k++) {
+            spawnExplosion(
+              g,
+              boss.x + Math.random() * BOSS_W,
+              boss.y + Math.random() * BOSS_H,
+              k % 2 ? "#e0384f" : "#ffb02e"
+            );
+          }
+          g.shake = Math.max(g.shake, 6);
+          g.hitStop = HIT_STOP * 3;
+          g.boss = null;
+          sfx.bossDown();
+        } else {
+          g.hitStop = HIT_STOP * 0.5;
+          sfx.bossHit();
+        }
+        break;
+      }
+    }
+
     for (const a of g.aliens) {
       if (!a.alive) continue;
       const { x: ax, y: ay } = alienPos(g, a);
@@ -517,13 +661,11 @@ export function update(dt, g, input, cb) {
   /* ---- enemy fire ---- */
   g.enemyFireTimer -= dt;
   if (g.enemyFireTimer <= 0) {
-    const shooters = g.aliens.filter((a) => a.alive);
+    const shooters = g.aliens.filter((a) => a.alive && !a.brood);
     if (shooters.length) {
       const a = shooters[Math.floor(Math.random() * shooters.length)];
-      g.ebullets.push({
-        x: g.formationX + a.x + ALIEN_W / 2 - 1.5,
-        y: g.formationY + a.y + ALIEN_H,
-      });
+      const pos = alienPos(g, a);
+      g.ebullets.push({ x: pos.x + ALIEN_W / 2 - 1.5, y: pos.y + ALIEN_H });
     }
     const base = Math.max(0.32, ALIEN_FIRE_INTERVAL - (g.level - 1) * 0.09);
     g.enemyFireTimer = base * (0.7 + Math.random() * 0.6);
@@ -558,6 +700,7 @@ export function update(dt, g, input, cb) {
         spawnExplosion(g, p.x + PLAYER_W / 2, p.y, "#ffb02e");
         sfx.loseLife();
         if (g.lives <= 0) {
+          g.ended = true;
           cb.onGameOver("shot");
           return;
         }
@@ -617,11 +760,15 @@ export function update(dt, g, input, cb) {
   /* ---- end conditions ---- */
   for (const a of g.aliens) {
     if (a.alive && !a.dive && g.formationY + a.y + ALIEN_H >= p.y) {
+      g.ended = true;
       cb.onGameOver("landed");
       return;
     }
   }
-  if (alive === 0) cb.onLevelClear();
+  if (alive === 0 && !g.boss) {
+    g.ended = true;
+    cb.onLevelClear();
+  }
 }
 
 /* ───────────────────────── draw ───────────────────────── */
@@ -725,6 +872,56 @@ function drawBoostTags(ctx, g) {
   }
 }
 
+/** The queen. Same anatomy as her swarm, four times the size, plus a crown. */
+function drawQueen(ctx, boss, t) {
+  const { x, y } = boss;
+  const beat = Math.sin(t * 16) * 3.2;
+  const hurt = boss.hp / boss.maxHp < 0.35;
+
+  ctx.fillStyle = "rgba(200,225,255,.22)";
+  ctx.fillRect(x + 4, y + 4 + beat, 24, 9);
+  ctx.fillRect(x + BOSS_W - 28, y + 4 - beat, 24, 9);
+
+  const body = boss.flash > 0 ? "#ffffff" : hurt ? "#b8283b" : "#e0384f";
+  ctx.fillStyle = body;
+  ctx.fillRect(x + 14, y + 12, 26, 14); // thorax
+  ctx.fillRect(x + 38, y + 15, 16, 9); // abdomen
+  ctx.fillRect(x + 52, y + 17, 8, 5); // tip
+
+  ctx.fillStyle = "rgba(11,9,16,.5)"; // stripes
+  for (let i = 0; i < 3; i++) ctx.fillRect(x + 40 + i * 5, y + 15, 2, 9);
+
+  ctx.fillStyle = boss.flash > 0 ? "#ffffff" : "#ffb02e"; // crown
+  ctx.fillRect(x + 16, y + 6, 3, 6);
+  ctx.fillRect(x + 22, y + 3, 3, 9);
+  ctx.fillRect(x + 28, y + 6, 3, 6);
+
+  ctx.fillStyle = body;
+  ctx.fillRect(x + 6, y + 13, 10, 10); // head
+  ctx.fillStyle = "#0b0910";
+  ctx.fillRect(x + 7, y + 15, 4, 4); // eye
+  ctx.fillStyle = "#efe6ff";
+  ctx.fillRect(x - 6, y + 20, 13, 2); // proboscis
+
+  ctx.fillStyle = "rgba(239,230,255,.35)"; // legs
+  ctx.fillRect(x + 18, y + 26, 2, 7);
+  ctx.fillRect(x + 26, y + 26, 2, 9);
+  ctx.fillRect(x + 34, y + 26, 2, 7);
+}
+
+/** Her health, as a bar across the top of the field. */
+function drawBossBar(ctx, boss) {
+  const w = W - 16;
+  const f = Math.max(0, boss.hp / boss.maxHp);
+  ctx.fillStyle = "rgba(11,9,16,.8)";
+  ctx.fillRect(8, H - 14, w, 7);
+  ctx.fillStyle = f < 0.35 ? "#ffb02e" : "#e0384f";
+  ctx.fillRect(8, H - 14, w * f, 7);
+  ctx.font = "7px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = "#efe6ff";
+  ctx.fillText("THE QUEEN", 10, H - 8.5);
+}
+
 /** Bunkers, drawn cell by cell. Thinning cover reads as a fraying silhouette. */
 function drawBunkers(ctx, g) {
   for (const b of g.bunkers) {
@@ -794,6 +991,7 @@ export function draw(canvas, g) {
   for (let x = 0; x < W; x += 8) ctx.fillRect(x, g.player.y - 1, 4, 1);
 
   drawBunkers(ctx, g);
+  if (g.boss) drawQueen(ctx, g.boss, g.t);
 
   for (const a of g.aliens) {
     if (!a.alive) continue;
@@ -827,6 +1025,7 @@ export function draw(canvas, g) {
   // HUD-ish overlays stay steady while the world shakes.
   drawBoostTags(ctx, g);
   drawCombo(ctx, g);
+  if (g.boss) drawBossBar(ctx, g.boss);
 }
 
 /* ───────────────────────── component ───────────────────────── */
@@ -878,7 +1077,7 @@ export default function Game() {
     setScore(0);
     setLives(3);
     setLevel(1);
-    setSwarm(TOTAL_ALIENS);
+    setSwarm(game.current.aliens.length);
     setCombo(1);
     setSummary(null);
     setStatus("playing");
@@ -895,7 +1094,7 @@ export default function Game() {
     next.shotsHit = prev.shotsHit;
     game.current = next;
     setLevel(next.level);
-    setSwarm(TOTAL_ALIENS);
+    setSwarm(next.aliens.length);
     setCombo(1);
     setStatus("playing");
   }, []);
@@ -1009,6 +1208,8 @@ export default function Game() {
           score={score}
           level={level}
           summary={summary}
+          bossCleared={isBossLevel(level)}
+          bossNext={isBossLevel(level + 1)}
           highScore={highScore}
           scores={scores}
           deathReason={deathReason}

@@ -41,6 +41,12 @@ you with a wobble and trailing red. A diver that connects costs a life; shooting
 pays double. They ignore the formation entirely, so a diver below your craft is not a
 swarm landing.
 
+**The queen.** Every 4th wave replaces the formation with a boss: a crowned queen who
+patrols the top, fires three-bullet spreads, seeds diving brood (up to 3 at once), grinds
+down cover, and creeps steadily downward — let her reach your altitude and the run ends.
+Her HP is 28 at wave 4 and rises 8 per boss tier; she fires and breeds faster as she takes
+damage. Chip damage pays 5 a hit, the kill pays 500 × your current combo multiplier.
+
 Row determines species and value:
 
 | Row | Species | Points |
