@@ -107,6 +107,18 @@ src/
 `mosquito-invaders.standalone.html` is the same game as one dependency-free HTML file —
 useful for a quick look without a build step, not part of the app.
 
+## Install it on a phone
+
+The site is a PWA — installed to the home screen it runs full-screen, portrait, with no
+browser chrome, and works with no signal once it has been opened once.
+
+- **iPhone / iPad:** open <https://mactifosi.github.io/mosquito-invaders/> **in Safari**
+  (Chrome on iOS can't install), tap Share → *Add to Home Screen* → Add.
+- **Android:** open it in Chrome, then *Install app* from the ⋮ menu (or the install prompt).
+
+Play one round while online so the service worker finishes precaching — after that it's
+airplane-safe. Sound needs one tap to start, per browser autoplay policy.
+
 ## Deployment
 
 Every push to `main` builds and publishes to GitHub Pages via
