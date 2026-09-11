@@ -6,6 +6,7 @@
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#060409",
-    "scrollEnabled": false
+    "scrollEnabled": false,
+    "scheme": "Caddora Games"
   }
 }
