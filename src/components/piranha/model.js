@@ -7,6 +7,7 @@
  */
 import {
   MAZE,
+  mazeForLevel,
   TILE,
   COLS,
   ROWS,
@@ -31,6 +32,13 @@ export const FISH_EATEN_SPEED = 223; // hurrying home as a pair of eyes
 export const PELLET_POINTS = 10;
 export const CARROT_POINTS = 50;
 export const FISH_POINTS = [200, 400, 800, 1600]; // per fish within one carrot
+export const CHAIN_BONUS = 2000; // all four on a single carrot
+
+/* Near miss: slipping past a hunter within a tile. Rewards the brave line, and
+   tells a new player that the risky route is the right one. */
+export const NEAR_MISS_POINTS = 25;
+const NEAR_MISS_RANGE = 1.15; // tiles
+const NEAR_MISS_CLEAR = 2.2; // ...and how far away it has to get before it counts again
 export const FRIGHTENED_TIME = 7;
 export const INTRO_TIME = 1.6;
 export const DEATH_TIME = 1.4;
@@ -94,14 +102,14 @@ const MODE_PLAN = [
 ];
 
 export function makeLevel(level, score, lives, opts = {}) {
-  const { speed = 1, rng = Math.random } = opts;
-  const pellets = makePellets(MAZE);
+  const { speed = 1, rng = Math.random, maze = mazeForLevel(level) } = opts;
+  const pellets = makePellets(maze);
 
   return {
     level,
     score,
     lives,
-    maze: MAZE,
+    maze,
     pellets,
     bunny: {
       ...tileCentre(BUNNY_START.col, BUNNY_START.row),
@@ -115,12 +123,15 @@ export function makeLevel(level, score, lives, opts = {}) {
       dir: "up",
       state: f.releaseAt === 0 ? "hunting" : "penned",
       releaseTimer: f.releaseAt,
+      near: false, // mid near-miss, so one pass scores once
     })),
     modeIndex: 0,
     modeTimer: MODE_PLAN[0].time,
     mode: MODE_PLAN[0].mode,
     frightened: 0,
     eatenThisCarrot: 0,
+    nearMisses: 0,
+    chains: 0,
     intro: INTRO_TIME,
     dying: 0,
     ended: false,
@@ -443,6 +454,23 @@ export function update(dt, g, input, cb) {
       continue;
     }
 
+    /* ---- near miss: close enough to feel it, not close enough to die ---- */
+    const gap = Math.hypot(f.x - b.x, f.y - b.y) / TILE;
+    if (g.frightened <= 0 && f.state === "hunting") {
+      if (!f.near && gap < NEAR_MISS_RANGE) {
+        f.near = true;
+        g.score += NEAR_MISS_POINTS;
+        g.nearMisses = (g.nearMisses || 0) + 1;
+        cb.onScore(g.score);
+        g.popups.push({ x: b.x, y: b.y - 10, text: "NEAR MISS", life: 0.7 });
+        cb.onNearMiss?.();
+      } else if (f.near && gap > NEAR_MISS_CLEAR) {
+        f.near = false;
+      }
+    } else {
+      f.near = false;
+    }
+
     /* ---- contact ---- */
     if (Math.hypot(f.x - b.x, f.y - b.y) < TILE * 0.7) {
       if (g.frightened > 0) {
@@ -453,6 +481,15 @@ export function update(dt, g, input, cb) {
         g.popups.push({ x: f.x, y: f.y, text: `+${points}`, life: 0.8 });
         f.state = "eaten";
         cb.onEatFish?.();
+
+        if (g.eatenThisCarrot === g.fish.length) {
+          // The whole shoal on one carrot — the skill goal worth chasing.
+          g.score += CHAIN_BONUS;
+          cb.onScore(g.score);
+          g.popups.push({ x: b.x, y: b.y - 16, text: `SHOAL +${CHAIN_BONUS}`, life: 1.4 });
+          g.chains = (g.chains || 0) + 1;
+          cb.onChain?.();
+        }
       } else {
         g.lives -= 1;
         cb.onLives(g.lives);

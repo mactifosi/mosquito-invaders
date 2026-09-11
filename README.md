@@ -37,6 +37,14 @@ The second cabinet: a maze under the waterline. A bunny eats algae; four piranha
 Eat a carrot and for seven seconds they flee instead — catch one then and it pays 200,
 doubling for each after within the same carrot.
 
+**Three layouts rotate by depth**, so depth 4 isn't depth 1 with faster fish. They share a
+pen block — same pen, same door, same tunnel row — so the actors' start positions hold
+whichever maze is in play.
+
+Two things reward playing on the edge rather than safely: slipping **within a tile of a
+hunter** scores a near miss (once per pass, not per frame), and eating **all four fish on a
+single carrot** pays a 2000-point chain bonus on top of the 200/400/800/1600.
+
 The four hunters have different temperaments, which is what turns identical pursuers into a
 puzzle: one comes straight at you, one aims four tiles ahead of where you're going, one
 pincers off the first one's position, and one loses its nerve within eight tiles. They

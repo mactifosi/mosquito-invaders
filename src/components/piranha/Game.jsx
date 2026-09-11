@@ -153,6 +153,11 @@ export default function Piranha() {
       sfx.eatFish();
       haptics.hit();
     },
+    onNearMiss: () => sfx.nearMiss(),
+    onChain: () => {
+      sfx.chain();
+      haptics.hit();
+    },
     onDeath: () => {
       sfx.death();
       haptics.loseCraft();

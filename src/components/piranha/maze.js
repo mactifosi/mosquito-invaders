@@ -31,14 +31,11 @@ export const ROWS = 21;
  * — the suite asserts it — while walls are free to be blocks, since the renderer
  * outlines contiguous walls as one shape rather than tile by tile.
  */
-const HALF_ROWS = [
-  ["########", "#"], //  0  border
-  ["#.......", "#"], //  1
-  ["#.##.##.", "#"], //  2
-  ["#o##.##.", "#"], //  3  power pellets
-  ["#.......", "."], //  4  open lane
-  ["#.##.#.#", "#"], //  5
-  ["#....#..", "."], //  6
+const mirror = (half) => half.split("").reverse().join("");
+
+/* The pen block is shared by every layout: same pen, same door, same tunnel row,
+   so the actors' start positions stay valid whichever maze is in play. */
+const PEN_ROWS = [
   ["####.###", "."], //  7  above the pen door
   ["####.###", "-"], //  8  pen roof + door
   ["####.#  ", " "], //  9  pen interior
@@ -46,19 +43,41 @@ const HALF_ROWS = [
   ["####.###", "."], // 11
   ["........", "."], // 12  tunnel: runs off both sides and wraps
   ["####.###", "."], // 13
-  ["#.......", "."], // 14  open lane
-  ["#o##.##.", "#"], // 15  power pellets
-  ["#..#....", "."], // 16
-  ["##.#.##.", "#"], // 17
-  ["#....#..", "."], // 18
-  ["#.##.##.", "#"], // 19
-  ["########", "#"], // 20  border
 ];
 
-const mirror = (half) => half.split("").reverse().join("");
+/* Three layouts, rotating by depth, so wave 4 isn't wave 1 with faster fish. */
+const LAYOUTS = [
+  {
+    top: [["########", "#"], ["#.......", "#"], ["#.##.##.", "#"], ["#o##.##.", "#"],
+          ["#.......", "."], ["#.##.#.#", "#"], ["#....#..", "."]],
+    bottom: [["#.......", "."], ["#o##.##.", "#"], ["#..#....", "."], ["##.#.##.", "#"],
+             ["#....#..", "."], ["#.##.##.", "#"], ["########", "#"]],
+  },
+  {
+    top: [["########", "#"], ["#.......", "."], ["#.###.#.", "#"], ["#o..#.#.", "."],
+          ["#.#.#.#.", "#"], ["#.#.....", "."], ["#.##.#.#", "."]],
+    bottom: [["#.#.....", "."], ["#o#.###.", "#"], ["#.......", "."], ["#.#####.", "#"],
+             ["#.......", "."], ["#.##.##.", "#"], ["########", "#"]],
+  },
+  {
+    top: [["########", "#"], ["#..##...", "."], ["#.#..#.#", "#"], ["#o#.##.#", "."],
+          ["#.......", "."], ["#.###.#.", "#"], ["#.....#.", "."]],
+    bottom: [["#.....#.", "."], ["#.###.#.", "#"], ["#.......", "."], ["#o#.##.#", "#"],
+             ["#.#..#.#", "."], ["#..##...", "."], ["########", "#"]],
+  },
+];
 
-/** The maze as an array of 21-character strings. */
-export const MAZE = HALF_ROWS.map(([left, centre]) => left + centre + mirror(left));
+const assemble = ({ top, bottom }) =>
+  [...top, ...PEN_ROWS, ...bottom].map(([left, centre]) => left + centre + mirror(left));
+
+/** Every layout, in rotation order. */
+export const MAZES = LAYOUTS.map(assemble);
+
+/** Which maze a given depth is played on. */
+export const mazeForLevel = (level) => MAZES[(level - 1) % MAZES.length];
+
+/** The first layout, used wherever a single maze is wanted (tests, defaults). */
+export const MAZE = MAZES[0];
 
 export const TUNNEL_ROW = 12; // wraps left/right, the way a river runs off-screen
 

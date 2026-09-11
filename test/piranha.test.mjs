@@ -49,6 +49,48 @@ const step = (g, c, input = {}, seconds = 1, dt = 1 / 60) => {
   for (let i = 0; i < Math.round(seconds / dt); i++) model.update(dt, g, input, c);
 };
 
+/* ---- every layout, not just the first ---- */
+check("three layouts rotate by depth",
+  maze.MAZES.length === 3 &&
+    maze.mazeForLevel(1) === maze.MAZES[0] &&
+    maze.mazeForLevel(4) === maze.MAZES[0] &&
+    maze.mazeForLevel(2) !== maze.mazeForLevel(3),
+  `${maze.MAZES.length} layouts`);
+
+const layoutFaults = [];
+maze.MAZES.forEach((m, i) => {
+  const op = (c, r) => c >= 0 && c < maze.COLS && r >= 0 && r < maze.ROWS && m[r][c] !== "#";
+  if (m.length !== maze.ROWS || m.some((row) => row.length !== maze.COLS)) layoutFaults.push(`${i}: size`);
+  if (m.some((row) => row !== row.split("").reverse().join(""))) layoutFaults.push(`${i}: asymmetry`);
+  if (m[8][8] !== "-") layoutFaults.push(`${i}: no pen door`);
+  if (!(op(0, maze.TUNNEL_ROW) && op(maze.COLS - 1, maze.TUNNEL_ROW))) layoutFaults.push(`${i}: tunnel`);
+  if (m.join("").split("o").length - 1 !== 4) layoutFaults.push(`${i}: carrots`);
+  for (let r = 0; r < maze.ROWS - 1; r++)
+    for (let c = 0; c < maze.COLS - 1; c++)
+      if ([[c,r],[c+1,r],[c,r+1],[c+1,r+1]].every(([cc, rr]) => op(cc, rr)))
+        layoutFaults.push(`${i}: double lane ${c},${r}`);
+  // Reachability, with the tunnel wrapping — an unclearable layout is a dead end
+  // that only shows up when a player gets to that depth.
+  const seen = new Set();
+  const stack = [[model.BUNNY_START.col, model.BUNNY_START.row]];
+  while (stack.length) {
+    const [c, r] = stack.pop();
+    const key = `${c},${r}`;
+    if (seen.has(key) || !op(c, r)) continue;
+    seen.add(key);
+    stack.push([c, r + 1], [c, r - 1]);
+    stack.push(
+      r === maze.TUNNEL_ROW ? [(c + 1) % maze.COLS, r] : [c + 1, r],
+      r === maze.TUNNEL_ROW ? [(c - 1 + maze.COLS) % maze.COLS, r] : [c - 1, r]
+    );
+  }
+  for (let r = 0; r < maze.ROWS; r++)
+    for (let c = 0; c < maze.COLS; c++)
+      if ("o.".includes(m[r][c]) && !seen.has(`${c},${r}`)) layoutFaults.push(`${i}: orphan ${c},${r}`);
+});
+check("every layout is symmetric, clearable and has a tunnel and a pen door",
+  layoutFaults.length === 0, layoutFaults.slice(0, 3).join(" | ") || "all three clean");
+
 /* ---- the maze ---- */
 check("every row is the declared width",
   maze.MAZE.length === maze.ROWS && maze.MAZE.every((r) => r.length === maze.COLS),
@@ -210,6 +252,42 @@ const t = maze.tileOf(g.bunny.x, g.bunny.y);
 g.pellets.grid[t.row][t.col] = ".";
 step(g, c, { want: "left" }, 0.1);
 check("eating the last algae clears the level", c.seen.cleared === 1, `cleared=${c.seen.cleared}`);
+
+/* ---- near miss and the carrot chain ---- */
+
+// Slipping past a hunter scores once per pass, not once per frame.
+g = model.makeLevel(1, 0, 3); c = cb();
+g.intro = 0;
+// Clear the algae: the bunny keeps swimming while the test steps, and pellet
+// income would otherwise be mixed into the score being measured.
+g.pellets.grid = g.pellets.grid.map((row) => row.map(() => null));
+g.pellets.remaining = 999;
+const passer = g.fish[0];
+passer.x = g.bunny.x + maze.TILE * 0.9;
+passer.y = g.bunny.y;
+passer.dir = "up"; // parked alongside, not closing
+const before = c.seen.score;
+step(g, c, {}, 0.3);
+check("a near miss scores once, not every frame",
+  c.seen.score === before + model.NEAR_MISS_POINTS && g.nearMisses === 1,
+  `score +${c.seen.score - before}, count ${g.nearMisses}`);
+
+// Eating all four on one carrot pays the chain bonus.
+g = model.makeLevel(1, 0, 3); c = cb();
+g.intro = 0;
+g.pellets.grid = g.pellets.grid.map((row) => row.map(() => null));
+g.pellets.remaining = 999;
+g.frightened = 5;
+g.eatenThisCarrot = 0;
+for (const f of g.fish) {
+  f.state = "hunting";
+  f.x = g.bunny.x;
+  f.y = g.bunny.y;
+  step(g, c, {}, 1 / 60);
+}
+check("the whole shoal on one carrot pays the chain bonus",
+  g.chains === 1 && c.seen.score === 200 + 400 + 800 + 1600 + model.CHAIN_BONUS,
+  `chains=${g.chains} score=${c.seen.score}`);
 
 for (const [s, n, d] of results) console.log(`${s}  ${n}${d ? "  (" + d + ")" : ""}`);
 const failed = results.filter(([s]) => s === "FAIL").length;

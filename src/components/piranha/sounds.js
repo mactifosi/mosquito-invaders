@@ -21,6 +21,14 @@ export const sfx = {
     tone("square", 200, 800, 0.18, 0.14);
     noise(0.1, 0.1);
   },
+  /** A hunter passing a whisker away — a quick intake of breath. */
+  nearMiss() {
+    tone("sine", 880, 1250, 0.09, 0.06);
+  },
+  /** The whole shoal on one carrot. */
+  chain() {
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone("triangle", f, f, 0.18, 0.14, i * 0.09));
+  },
   death() {
     [520, 400, 300, 210, 140].forEach((f, i) => tone("sawtooth", f, f * 0.8, 0.22, 0.15, i * 0.12));
     noise(0.5, 0.12, 0.4);
