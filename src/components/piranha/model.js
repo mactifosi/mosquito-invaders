@@ -40,7 +40,7 @@ export const DEATH_TIME = 1.4;
  * looked right but is a vertical shaft, so it could only ever swim up or down
  * from a standing start, which feels broken in the first second of play.
  */
-export const BUNNY_START = { col: 7, row: 14 };
+export const BUNNY_START = { col: 7, row: 13 };
 export const DEN = { col: 7, row: 9 };
 export const DEN_EXIT = { col: 7, row: 7 };
 

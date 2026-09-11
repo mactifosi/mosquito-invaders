@@ -22,26 +22,33 @@ export const TILE = 24;
 export const COLS = 15;
 export const ROWS = 19;
 
-/** Left half of each row (10 columns) plus the centre column. */
+/**
+ * Left half of each row (7 columns) plus the centre column.
+ *
+ * Laid out as a lattice — corridors on odd rows and columns, walls on even ones,
+ * with passages carved by opening the cell between two corridor cells. That
+ * makes every corridor exactly one tile wide and every wall one tile thick, by
+ * construction: no double lanes and no slabs.
+ */
 const HALF_ROWS = [
   ["#######", "#"],
-  ["#.....#", "."],
-  ["#o###.#", "."],
-  ["#.....#", "."],
-  ["#.###.#", "."],
-  ["#......", "."],
-  ["###.##.", "#"],
-  ["####...", "."],
-  ["####.##", "-"],
-  ["####.# ", " "],
-  ["####.##", "#"],
-  ["####...", "."],
-  ["   #...", "."],
-  ["###..#.", "#"],
   ["#......", "."],
   ["#.###.#", "."],
-  ["#o....#", "."],
+  ["#o..#..", "."],
+  ["#.#.#.#", "#"],
+  ["#......", "."],
+  ["#.#####", "."],
   ["#.....#", "."],
+  ["#.#####", "-"],
+  ["#...#  ", " "],
+  ["#.#.###", "#"],
+  [" .....#", "."],
+  ["###.#.#", "."],
+  ["#.#....", "."],
+  ["#.###.#", "."],
+  ["#o..#..", "."],
+  ["#.#.###", "."],
+  ["#......", "."],
   ["#######", "#"],
 ];
 
@@ -50,7 +57,7 @@ const mirror = (half) => half.split("").reverse().join("");
 /** The maze as an array of 21-character strings. */
 export const MAZE = HALF_ROWS.map(([left, centre]) => left + centre + mirror(left));
 
-export const TUNNEL_ROW = 12; // wraps left/right, the way a river runs off-screen
+export const TUNNEL_ROW = 11; // wraps left/right, the way a river runs off-screen
 
 /* ---- tile queries ---- */
 

@@ -57,6 +57,26 @@ check("every row is the declared width",
 check("the maze is left-right symmetric",
   maze.MAZE.every((r) => r === r.split("").reverse().join("")), "");
 
+// The two faults that showed up in play: corridors running side by side, and
+// wall slabs several tiles thick. Both are a 2x2 block of one kind of tile.
+const openAt = (c, r) =>
+  c >= 0 && c < maze.COLS && r >= 0 && r < maze.ROWS && maze.MAZE[r][c] !== "#";
+const doubleLanes = [];
+const slabs = [];
+for (let r = 0; r < maze.ROWS - 1; r++) {
+  for (let c = 0; c < maze.COLS - 1; c++) {
+    const quad = [[c, r], [c + 1, r], [c, r + 1], [c + 1, r + 1]];
+    if (quad.every(([cc, rr]) => openAt(cc, rr))) doubleLanes.push(`${c},${r}`);
+    // The outer border is allowed to be thick; it's the frame, not a wall.
+    const interior = r > 0 && c > 0 && r < maze.ROWS - 2 && c < maze.COLS - 2;
+    if (interior && quad.every(([cc, rr]) => !openAt(cc, rr))) slabs.push(`${c},${r}`);
+  }
+}
+check("no double lanes — every corridor is one tile wide", doubleLanes.length === 0,
+  doubleLanes.slice(0, 3).join(" ") || "none");
+check("no slabs — every interior wall is one tile thick", slabs.length === 0,
+  slabs.slice(0, 3).join(" ") || "none");
+
 const reach = maze.reachableTiles(maze.MAZE, model.BUNNY_START.col, model.BUNNY_START.row);
 let orphans = 0;
 maze.MAZE.forEach((row, r) =>
@@ -86,13 +106,13 @@ check("the bunny swims and eats as it goes", g.bunny.x < startX && c.seen.score 
 
 g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
-g.bunny.x = maze.tileCentre(1, 14).x;   // hard against the left wall
-g.bunny.y = maze.tileCentre(1, 14).y;
+g.bunny.x = maze.tileCentre(1, 17).x;   // hard against the left wall
+g.bunny.y = maze.tileCentre(1, 17).y;
 g.bunny.dir = "left";
 step(g, c, { want: "left" }, 1);
 const stopped = maze.tileOf(g.bunny.x, g.bunny.y);
 check("a wall stops the bunny rather than swallowing it",
-  stopped.col === 1 && stopped.row === 14 && Math.abs(g.bunny.x - maze.tileCentre(1, 14).x) < 2,
+  stopped.col === 1 && stopped.row === 17 && Math.abs(g.bunny.x - maze.tileCentre(1, 17).x) < 2,
   `tile ${stopped.col},${stopped.row}`);
 
 /* ---- the chase ---- */
@@ -103,8 +123,8 @@ g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
 g.mode = "chase";
 g.modeTimer = Infinity;
-g.bunny.x = maze.tileCentre(1, 14).x;
-g.bunny.y = maze.tileCentre(1, 14).y;
+g.bunny.x = maze.tileCentre(1, 17).x;
+g.bunny.y = maze.tileCentre(1, 17).y;
 g.bunny.dir = "left";
 // The measure of a working chase isn't distance — it's arrival. (Measuring
 // distance after the fact compares post-respawn positions, since a catch
@@ -125,8 +145,8 @@ check("each fish has its own temperament and corner",
 /* ---- the carrot turns the hunt around ---- */
 g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
-g.bunny.x = maze.tileCentre(1, 2).x;
-g.bunny.y = maze.tileCentre(1, 2).y; // sitting on a carrot
+g.bunny.x = maze.tileCentre(1, 3).x;
+g.bunny.y = maze.tileCentre(1, 3).y; // sitting on a carrot
 step(g, c, { want: "down" }, 0.05);
 check("a carrot frightens the shoal and scores 50",
   g.frightened > 0 && c.seen.score === model.CARROT_POINTS,
