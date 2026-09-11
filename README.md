@@ -143,6 +143,21 @@ The game also ships as a native iOS app (Capacitor), published to TestFlight as
 **CaddoraGames** (`com.caddora.games`). `npm run ios` builds the web assets, syncs them into
 the native project and opens Xcode; `npm run archive` produces a distributable archive.
 
+### Shipping a build
+
+```bash
+export ASC_ISSUER_ID=<uuid>   # once, from App Store Connect → Users and Access → Integrations
+npm run release               # bump the build number, archive, upload to TestFlight
+```
+
+`npm run release` is `bump` + `archive` + `upload`. The upload authenticates with an App
+Store Connect API key (`~/.appstoreconnect/private_keys/AuthKey_<id>.p8`), so it doesn't
+depend on an Xcode login session — those expire, and Organizer reports it only as
+`DistributionAppRecordProviderError error 0`. No credentials live in this repo: the key
+stays on disk and the issuer ID comes from the environment.
+
+The bump matters — App Store Connect rejects a build number it has already seen.
+
 One wrinkle worth knowing before you tidy it away: the Xcode project is
 `ios/App/Caddora Games.xcodeproj`, and `ios/App/App.xcodeproj` is a **symlink** pointing at
 it. Capacitor hardcodes the path `ios/App/App.xcodeproj` with no config override, so
