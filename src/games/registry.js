@@ -27,6 +27,16 @@ export const GAMES = [
     ink: "#231003",
     playable: true,
   },
+  {
+    id: "skimmer",
+    title: "Skimmer",
+    marquee: "STILL WATER · EGG RAFTS",
+    blurb: "Skim a stone off the punt and break every raft of mosquito eggs. The red ones are hatching — leave one too long and something gets out.",
+    path: "/skimmer",
+    accent: "#9fe8c9",
+    ink: "#06231b",
+    playable: true,
+  },
 ];
 
 export const findGame = (id) => GAMES.find((g) => g.id === id) || null;

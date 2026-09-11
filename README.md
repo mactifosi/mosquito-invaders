@@ -59,6 +59,21 @@ when the mode flips — the tell that something changed.
 
 Swipe to steer on touch, arrows or WASD on a keyboard.
 
+## Skimmer
+
+The third cabinet: Breakout on the water. You skim a stone off a punt to break rafts of
+mosquito eggs — which is where the mosquitoes in cabinet one come from.
+
+The red rafts are **hatching**. Each carries a fuse, and if you leave one too long it opens
+and a mosquito flies for the open air: catch it with the punt for 250, or let it past and
+lose 80. That's the twist on Breakout — the wall is on a timer, so the order you break it in
+matters.
+
+Rafts broken without touching the punt build a **rally**, each one worth 10% more than the
+last. Power-ups drop: a wider punt, slower water, or a stone that splits in three.
+
+Five levels of rafts, authored as text and mirrored, then repeating faster each lap.
+
 ## Controls
 
 | Action | Keyboard | Touch |
