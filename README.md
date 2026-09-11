@@ -134,6 +134,21 @@ browser chrome, and works with no signal once it has been opened once.
 Play one round while online so the service worker finishes precaching — after that it's
 airplane-safe. Sound needs one tap to start, per browser autoplay policy.
 
+## iOS app
+
+The game also ships as a native iOS app (Capacitor), published to TestFlight as
+**CaddoraGames** (`com.caddora.games`). `npm run ios` builds the web assets, syncs them into
+the native project and opens Xcode; `npm run archive` produces a distributable archive.
+
+One wrinkle worth knowing before you tidy it away: the Xcode project is
+`ios/App/Caddora Games.xcodeproj`, and `ios/App/App.xcodeproj` is a **symlink** pointing at
+it. Capacitor hardcodes the path `ios/App/App.xcodeproj` with no config override, so
+without the symlink `npx cap sync` fails to write `Package.swift` and plugins never reach
+the native project. Delete the symlink and the next plugin you add will silently not build.
+
+The native build sets `CAP_BUILD=1`, which disables the service worker — the app bundle
+already carries its assets, and a worker can't register over `capacitor://`.
+
 ## Deployment
 
 Every push to `main` builds and publishes to GitHub Pages via

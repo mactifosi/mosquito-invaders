@@ -18,7 +18,7 @@
                BlueprintIdentifier = "504EC3031FED79650016851F"
                BuildableName = "Caddora Games.app"
                BlueprintName = "Caddora Games"
-               ReferencedContainer = "container:App.xcodeproj">
+               ReferencedContainer = "container:Caddora Games.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -48,7 +48,7 @@
             BlueprintIdentifier = "504EC3031FED79650016851F"
             BuildableName = "Caddora Games.app"
             BlueprintName = "Caddora Games"
-            ReferencedContainer = "container:App.xcodeproj">
+            ReferencedContainer = "container:Caddora Games.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -65,7 +65,7 @@
             BlueprintIdentifier = "504EC3031FED79650016851F"
             BuildableName = "Caddora Games.app"
             BlueprintName = "Caddora Games"
-            ReferencedContainer = "container:App.xcodeproj">
+            ReferencedContainer = "container:Caddora Games.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
