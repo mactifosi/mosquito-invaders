@@ -14,6 +14,9 @@ export default defineConfig({
     // Installable to a phone's home screen, and fully playable offline —
     // Workbox precaches the whole build, and the game needs no network anyway.
     VitePWA({
+      // The native (Capacitor) build ships its assets in the app bundle, so the
+      // service worker has nothing to add and can't register over capacitor://.
+      disable: process.env.CAP_BUILD === "1",
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png"],
       manifest: {

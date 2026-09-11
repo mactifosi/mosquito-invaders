@@ -1,0 +1,11 @@
+{
+  "appId": "com.johnsheehy.mosquitoinvaders",
+  "appName": "Mosquito Invaders",
+  "webDir": "dist",
+  "backgroundColor": "#060409",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#060409",
+    "scrollEnabled": false
+  }
+}
