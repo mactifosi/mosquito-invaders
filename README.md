@@ -26,11 +26,14 @@ npm run preview  # serve the build
 
 ## Rules
 
-The swarm marches sideways, drops 14px each time it hits an edge, and speeds up as it
-thins out — the last few mosquitoes move roughly three times faster than a full formation.
-You lose a life to an enemy bite, and the run ends immediately if any mosquito reaches the
-craft's altitude, however many lives are left. Clearing a wave advances the level: the
-formation starts faster and fires sooner.
+Each wave opens with a card naming what's coming, during which the swarm holds station —
+a breath between waves, and a moment to read the field.
+
+The swarm marches sideways, drops 14px each time it hits an edge, and speeds up as it thins
+out, to 1.8× the opening speed at the last mosquito. You lose a craft to an enemy bite, and
+also if the swarm reaches your altitude — a breach costs one craft and drives the formation
+back to the top at its current speed, rather than ending the run outright. Clearing a wave
+advances the level: the formation starts faster and fires sooner.
 
 **Cover.** Four bunkers stand between you and the swarm. They erode cell by cell from
 either side — enemy fire chews them from above, *your own shots chew them from below*, and
@@ -68,10 +71,10 @@ shield 18 / life 10.
 | **S** Shield | absorbs one hit | until broken |
 | **+** Life | +1 craft (max 5) | instant |
 
-Shooting a falling power-up **destroys** it rather than collecting it — that's deliberate.
-Clearing a lane with rapid fire can cost you the bonus you were shooting toward. Timed
-boosts show as depleting bars in the top-left of the field; an unbroken shield carries
-across a wave.
+Shooting a falling power-up cashes it for 50 points × your combo multiplier instead of
+collecting it. The choice is real either way — points now, or the power-up's effect if you
+let it fall to you — and a stray shot during rapid fire isn't punished. Timed boosts show
+as depleting bars in the top-left of the field; an unbroken shield carries across a wave.
 
 ## Architecture
 
@@ -187,3 +190,4 @@ copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 - Backend-backed global leaderboard to supplement the local one.
 - Enemy variety — a boss swarm every N levels.
 - Settings: mute toggle, difficulty select.
+- Drag-to-move instead of the ◀ ▶ buttons, which suits a thumb better than discrete taps.

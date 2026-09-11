@@ -34,6 +34,7 @@ const ALIEN_FIRE_INTERVAL = 1.1;
 const STEP_DOWN = 14;
 
 const POWERUP_CHANCE = 0.16;
+const POWERUP_SHOT_POINTS = 50; // shooting one pays out instead of collecting it
 const POWERUP_SPEED = 75;
 const POWERUP_SIZE = 14;
 const RAPID_DURATION = 8;
@@ -47,6 +48,15 @@ const SHAKE_ON_SHIELD = 2.5; // px, shield absorbs it
 const SHAKE_DECAY = 14; // px per second
 const POPUP_LIFE = 0.7; // floating score, seconds
 const POPUP_RISE = 26; // px it drifts upward over its life
+const MUZZLE_TIME = 0.05; // flash at the barrel, seconds
+const RECOIL_TIME = 0.08; // craft sits 1px lower for this long after firing
+
+/* A breath between waves: the card is up, the swarm holds station. */
+const INTRO_TIME = 1.2;
+
+/* How much faster a thinned swarm flies. At 0.8 the last mosquito moves 1.8x
+   the opening speed; it was 2.2 (3.2x), which by wave 6 outran the craft. */
+const SPEED_MUL_RANGE = 0.8;
 
 /* Bunkers: four eroding shields between the swarm and the craft. Each is a
    grid of 4px cells; every bullet that lands chews a small crater. */
@@ -95,6 +105,16 @@ const COMBO_PER_STEP = 3; // kills needed to raise the multiplier one step
 
 const SIDE_MARGIN = (W - (COLS * ALIEN_W + (COLS - 1) * ALIEN_GAP_X)) / 2;
 const TOTAL_ALIENS = COLS * ROWS;
+
+/** How much the formation speeds up as it thins. Capped by SPEED_MUL_RANGE. */
+export const formationSpeedMul = (alive) => 1 + (1 - alive / TOTAL_ALIENS) * SPEED_MUL_RANGE;
+
+/** The card shown between waves. */
+export function waveTitle(level) {
+  if (isBossLevel(level)) return { wave: `WAVE ${level}`, sub: "THE QUEEN" };
+  const species = SPECIES[(level - 1) % SPECIES.length];
+  return { wave: `WAVE ${level}`, sub: `${species.name.toUpperCase()} SURGE` };
+}
 
 /** Multiplier from a kill streak: 3 kills → ×2, 6 → ×3, capped at COMBO_MAX. */
 export const comboMultiplier = (streak) =>
@@ -244,6 +264,8 @@ export function makeLevel(level, score, lives) {
       rapidUntil: 0,
       tripleUntil: 0,
       hitFlash: 0,
+      muzzle: 0,
+      recoil: 0,
     },
     aliens,
     boss,
@@ -259,6 +281,7 @@ export function makeLevel(level, score, lives) {
     popups: [],
     motes,
     t: 0,
+    intro: INTRO_TIME,
     enemyFireTimer: ALIEN_FIRE_INTERVAL,
     humTimer: 0,
     baseSpeed: 24 + (level - 1) * 8,
@@ -280,6 +303,37 @@ export function makeLevel(level, score, lives) {
 
 function spawnPopup(g, x, y, text, color) {
   g.popups.push({ x, y, text, color, life: POPUP_LIFE });
+}
+
+/**
+ * The swarm reached the craft's altitude. That used to end the run outright,
+ * however many lives were left, which reads as a bug rather than a rule. Now it
+ * costs one craft and drives the swarm back to the top — pressure kept, and the
+ * lives on the HUD mean what they say. Its speed is untouched, so a thinned
+ * swarm comes back just as fast.
+ */
+function breachDefences(g, cb) {
+  g.lives -= 1;
+  cb.onLives(g.lives);
+  g.player.hitFlash = 0.5;
+  g.shake = Math.max(g.shake, SHAKE_ON_HIT);
+  breakCombo(g, cb);
+  spawnPopup(g, W / 2, PLAYER_Y - 40, "SWARM BREACHED", "#e0384f");
+  sfx.loseLife();
+  haptics.loseCraft();
+
+  g.formationY = ALIEN_TOP;
+  g.ebullets.length = 0;
+  for (const a of g.aliens) if (!a.brood) a.dive = null;
+  if (g.boss) g.boss.y = 44;
+  g.intro = INTRO_TIME * 0.6; // a moment to recover before it starts again
+
+  if (g.lives <= 0) {
+    g.ended = true;
+    cb.onGameOver("landed");
+    return true;
+  }
+  return false;
 }
 
 /** A miss, a bite, or two quiet seconds — any of them ends the streak. */
@@ -346,6 +400,9 @@ export function update(dt, g, input, cb) {
   g.t += dt;
   const p = g.player;
 
+  const intro = g.intro > 0;
+  if (intro) g.intro -= dt;
+
   if (g.shake > 0) g.shake = Math.max(0, g.shake - SHAKE_DECAY * dt);
 
   for (let i = g.popups.length - 1; i >= 0; i--) {
@@ -371,6 +428,8 @@ export function update(dt, g, input, cb) {
   if (input.right) p.x += PLAYER_SPEED * dt;
   p.x = Math.max(2, Math.min(W - PLAYER_W - 2, p.x));
   if (p.hitFlash > 0) p.hitFlash -= dt;
+  if (p.muzzle > 0) p.muzzle -= dt;
+  if (p.recoil > 0) p.recoil -= dt;
 
   p.cooldown -= dt;
   if (input.fire && p.cooldown <= 0) {
@@ -384,13 +443,14 @@ export function update(dt, g, input, cb) {
       g.bullets.push({ x: bx, y: by, vx: 0 });
       g.shotsFired += 1;
     }
+    p.muzzle = MUZZLE_TIME;
+    p.recoil = RECOIL_TIME;
     sfx.laser();
   }
 
   /* ---- formation march: thinner swarm flies faster ---- */
   const alive = aliveCount(g);
-  const speedMul = 1 + (1 - alive / TOTAL_ALIENS) * 2.2;
-  g.formationX += g.baseSpeed * speedMul * dt * g.dir;
+  if (!intro) g.formationX += g.baseSpeed * formationSpeedMul(alive) * dt * g.dir;
 
   let minX = Infinity;
   let maxX = -Infinity;
@@ -414,7 +474,7 @@ export function update(dt, g, input, cb) {
   for (const a of g.aliens) if (a.flash > 0) a.flash -= dt;
 
   /* ---- divers: break formation and swoop at the craft ---- */
-  if (g.level >= DIVE_FROM_LEVEL) {
+  if (g.level >= DIVE_FROM_LEVEL && !intro) {
     g.diveTimer -= dt;
     const active = g.aliens.filter((a) => a.alive && a.dive).length;
     if (g.diveTimer <= 0 && active < DIVE_MAX_ACTIVE) {
@@ -498,7 +558,7 @@ export function update(dt, g, input, cb) {
     const boss = g.boss;
     if (boss.flash > 0) boss.flash -= dt;
 
-    boss.x += boss.vx * dt;
+    if (!intro) boss.x += boss.vx * dt;
     if (boss.x < 4) {
       boss.x = 4;
       boss.vx = Math.abs(boss.vx);
@@ -506,11 +566,11 @@ export function update(dt, g, input, cb) {
       boss.x = W - BOSS_W - 4;
       boss.vx = -Math.abs(boss.vx);
     }
-    boss.y += BOSS_DESCENT * dt;
+    if (!intro) boss.y += BOSS_DESCENT * dt;
 
     // She fires faster the more damage she has taken.
     const urgency = 1 - (boss.hp / boss.maxHp) * 0.55;
-    boss.fireTimer -= dt;
+    if (!intro) boss.fireTimer -= dt;
     if (boss.fireTimer <= 0) {
       const cx = boss.x + BOSS_W / 2 - 1.5;
       const by = boss.y + BOSS_H;
@@ -518,7 +578,7 @@ export function update(dt, g, input, cb) {
       boss.fireTimer = BOSS_FIRE_INTERVAL * urgency * (0.8 + Math.random() * 0.4);
     }
 
-    boss.broodTimer -= dt;
+    if (!intro) boss.broodTimer -= dt;
     if (boss.broodTimer <= 0) {
       const brood = g.aliens.filter((a) => a.alive && a.brood).length;
       if (brood < BOSS_BROOD_MAX) {
@@ -537,9 +597,7 @@ export function update(dt, g, input, cb) {
     }
 
     if (boss.y + BOSS_H >= p.y) {
-      g.ended = true;
-      cb.onGameOver("landed");
-      return;
+      if (breachDefences(g, cb)) return;
     }
   }
 
@@ -574,6 +632,14 @@ export function update(dt, g, input, cb) {
         b.y < u.y + POWERUP_SIZE &&
         b.y + 7 > u.y
       ) {
+        // Shot rather than caught: it pays out. The choice stays — points now,
+        // or the power-up's effect if you let it fall to you — but a stray shot
+        // during rapid fire no longer feels like the game docking you for it.
+        const cashMult = comboMultiplier(g.streak);
+        const cash = POWERUP_SHOT_POINTS * cashMult;
+        g.score += cash;
+        cb.onScore(g.score);
+        spawnPopup(g, u.x + POWERUP_SIZE / 2, u.y, `+${cash}`, POWERUP_COLORS[u.type]);
         spawnExplosion(g, u.x + POWERUP_SIZE / 2, u.y + POWERUP_SIZE / 2, POWERUP_COLORS[u.type]);
         g.powerups.splice(j, 1);
         g.bullets.splice(i, 1);
@@ -662,7 +728,7 @@ export function update(dt, g, input, cb) {
   }
 
   /* ---- enemy fire ---- */
-  g.enemyFireTimer -= dt;
+  if (!intro) g.enemyFireTimer -= dt;
   if (g.enemyFireTimer <= 0) {
     const shooters = g.aliens.filter((a) => a.alive && !a.brood);
     if (shooters.length) {
@@ -764,9 +830,8 @@ export function update(dt, g, input, cb) {
   /* ---- end conditions ---- */
   for (const a of g.aliens) {
     if (a.alive && !a.dive && g.formationY + a.y + ALIEN_H >= p.y) {
-      g.ended = true;
-      cb.onGameOver("landed");
-      return;
+      if (breachDefences(g, cb)) return;
+      break;
     }
   }
   if (alive === 0 && !g.boss) {
@@ -811,8 +876,16 @@ function drawMosquito(ctx, x, y, color, flash, t, row, diving = false) {
 
 function drawPlayer(ctx, g) {
   const p = g.player;
-  const { x, y } = p;
+  const x = p.x;
+  const y = p.y + (p.recoil > 0 ? 1 : 0); // the craft sits back a pixel on firing
   if (p.hitFlash > 0 && Math.floor(p.hitFlash * 20) % 2 === 0) return;
+
+  if (p.muzzle > 0) {
+    ctx.fillStyle = "#fff6dd";
+    ctx.fillRect(x + 11, y - 4, 4, 4);
+    ctx.fillStyle = "rgba(255,176,46,.5)";
+    ctx.fillRect(x + 9, y - 6, 8, 3);
+  }
 
   ctx.fillStyle = "#ffb02e";
   ctx.fillRect(x + 2, y + 8, PLAYER_W - 4, 5); // wings
@@ -926,6 +999,32 @@ function drawBossBar(ctx, boss) {
   ctx.fillText("THE QUEEN", 10, H - 8.5);
 }
 
+/** Between waves: a card naming what's coming, while the swarm holds station. */
+function drawWaveCard(ctx, g) {
+  if (g.intro <= 0) return;
+  const { wave, sub } = waveTitle(g.level);
+  // Fade in over the first 15% and out over the last 25%, hold in between.
+  const f = g.intro / INTRO_TIME;
+  const alpha = Math.min(1, Math.min((1 - f) / 0.15, f / 0.25));
+
+  ctx.globalAlpha = Math.max(0, alpha);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(11,9,16,.72)";
+  ctx.fillRect(0, H / 2 - 34, W, 68);
+  ctx.fillStyle = "#ffb02e";
+  ctx.fillRect(0, H / 2 - 34, W, 1);
+  ctx.fillRect(0, H / 2 + 33, W, 1);
+
+  ctx.font = "16px 'Silkscreen', monospace";
+  ctx.fillText(wave, W / 2, H / 2 - 6);
+  ctx.font = "9px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = "#9a8cb4";
+  ctx.fillText(sub, W / 2, H / 2 + 14);
+
+  ctx.textAlign = "left";
+  ctx.globalAlpha = 1;
+}
+
 /** Bunkers, drawn cell by cell. Thinning cover reads as a fraying silhouette. */
 function drawBunkers(ctx, g) {
   for (const b of g.bunkers) {
@@ -1030,6 +1129,7 @@ export function draw(canvas, g) {
   drawBoostTags(ctx, g);
   drawCombo(ctx, g);
   if (g.boss) drawBossBar(ctx, g.boss);
+  drawWaveCard(ctx, g);
 }
 
 /* ───────────────────────── component ───────────────────────── */
