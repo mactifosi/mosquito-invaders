@@ -26,6 +26,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Don't publish a build whose rules are broken.
+      - run: npm test
       - run: npm run build
       # The arcade is a client-side SPA with real routes now. Pages has no
       # rewrite rule, so a refresh on /mosquito-invaders would 404 without this.

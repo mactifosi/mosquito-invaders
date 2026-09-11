@@ -14,9 +14,22 @@ To run it locally:
 ```bash
 npm install
 npm run dev      # http://localhost:5173
+npm test         # game-rule suite (no browser needed)
 npm run build    # production build into dist/
 npm run preview  # serve the build
 ```
+
+## Tests
+
+`npm test` drives `update()` directly in Node at a fixed timestep — no canvas, no React, no
+`requestAnimationFrame` — and asserts the rules: combo breaks, breach behaviour, bunker
+erosion, dive bonuses, queen HP and cadence, drag clamping, and that end-of-run callbacks
+fire exactly once. `test/harness.mjs` bundles `Game.jsx` with esbuild and stubs the few
+globals it touches.
+
+They run in milliseconds, run in CI on every push, and gate the Pages deploy. They have
+already caught two real bugs: `onGameOver` firing every frame (saving each run to the
+leaderboard several times over) and `isBossLevel` being unsafe as a predicate.
 
 ## Controls
 
@@ -244,6 +257,5 @@ copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 ## Ideas not yet built
 
 - A second cabinet — the registry and per-game score keys are ready for one.
-- Move the test suite into the repo and run it in CI (it currently lives outside).
 - Backend-backed global leaderboard to supplement the local one.
 - Enemy variety — a boss swarm every N levels.
