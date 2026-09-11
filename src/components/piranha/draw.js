@@ -172,8 +172,8 @@ function drawFish(ctx, g, f) {
     pixelDisc(ctx, x, y, R);
 
     // Belly, lighter underneath.
-    ctx.fillStyle = "rgba(255,255,255,.14)";
-    pixelDisc(ctx, x - d * 2, y + 4, 5);
+    ctx.fillStyle = "rgba(255,255,255,.10)";
+    pixelDisc(ctx, x - d * 4, y + 3, 4);
 
     // Pectoral fin.
     ctx.fillStyle = "rgba(11,9,16,.28)";
@@ -184,46 +184,67 @@ function drawFish(ctx, g, f) {
     ctx.closePath();
     ctx.fill();
 
-    // The jaw: a wedge taken out of the front of the disc.
-    const jawTip = x + d * (R + 1);
+    // The jaw is carved out of the disc rather than stuck onto it: the cavity
+    // and its teeth are clipped to the body, so the silhouette stays a clean
+    // circle however wide the fish gapes.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, Math.PI * 2);
+    ctx.clip();
+
+    const apexX = x - d * 1; // the bite reaches past the middle of the head
+    const apexY = y + 3;
+    const far = x + d * (R + 10); // overshoots; the clip trims it to the body
+    const upperY = y - gape - 2; // shallower, so the jaw doesn't swallow the eye
+    const lowerY = y + gape + 12;
+
     ctx.fillStyle = "#2a0b10";
     ctx.beginPath();
-    ctx.moveTo(x + d * 3, y + 2); // hinge, clear of the eye
-    ctx.lineTo(jawTip, y - gape - 2);
-    ctx.lineTo(jawTip, y + gape + 4);
+    ctx.moveTo(apexX, apexY);
+    ctx.lineTo(far, upperY);
+    ctx.lineTo(far, lowerY);
     ctx.closePath();
     ctx.fill();
 
-    // Teeth: big triangles along both jaws, pointing into the gape.
+    ctx.fillStyle = "#8c1f2d"; // throat, deep in the cavity
+    ctx.beginPath();
+    ctx.moveTo(apexX, apexY);
+    ctx.lineTo(apexX + d * 7, apexY - 3);
+    ctx.lineTo(apexX + d * 7, apexY + 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Teeth ride the jaw lines, pointing into the cavity.
     ctx.fillStyle = "#ffffff";
-    for (let i = 0; i < 3; i++) {
-      const t = 5 + i * 2.4;
-      const lerp = (t - 3) / (R - 2);
-      const topY = y + 2 - (gape + 4) * lerp;
-      const botY = y + 2 + (gape + 6) * lerp;
-      const tx = x + d * t;
-      ctx.beginPath(); // upper
-      ctx.moveTo(tx, topY);
-      ctx.lineTo(tx + d * 2.2, topY);
-      ctx.lineTo(tx + d * 1.1, topY + 3);
+    for (let i = 0; i < 5; i++) {
+      const t = 3 + i * 2.6;
+      const sFrac = t / (R + 11);
+      const tx = apexX + d * t;
+      const topY = apexY + (upperY - apexY) * sFrac;
+      const botY = apexY + (lowerY - apexY) * sFrac;
+      ctx.beginPath(); // upper, pointing down
+      ctx.moveTo(tx - d * 1.6, topY - 1);
+      ctx.lineTo(tx + d * 1.6, topY - 1);
+      ctx.lineTo(tx, topY + 5);
       ctx.closePath();
       ctx.fill();
-      ctx.beginPath(); // lower
-      ctx.moveTo(tx, botY);
-      ctx.lineTo(tx + d * 2.2, botY);
-      ctx.lineTo(tx + d * 1.1, botY - 3);
+      ctx.beginPath(); // lower, pointing up
+      ctx.moveTo(tx - d * 1.6, botY + 1);
+      ctx.lineTo(tx + d * 1.6, botY + 1);
+      ctx.lineTo(tx, botY - 5);
       ctx.closePath();
       ctx.fill();
     }
+    ctx.restore();
   }
 
   // Eye: large, set high and forward. Survives being eaten — it's what swims home.
   ctx.fillStyle = eaten ? "rgba(255,255,255,.9)" : "#ffe9b8";
-  pixelDisc(ctx, x + d * 2, y - 5, 3);
+  pixelDisc(ctx, x + d * 2, y - 6, 3.2);
   ctx.fillStyle = frightened && !flashing ? "#9fe8c9" : "#0b0910";
-  pixelDisc(ctx, x + d * 3, y - 5, 1.6);
+  pixelDisc(ctx, x + d * 3, y - 6, 1.8);
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(Math.round(x + d * 3), y - 7, 1, 1); // catchlight
+  ctx.fillRect(Math.round(x + d * 3), y - 8, 1, 1); // catchlight
 }
 
 function drawHudBanner(ctx, g) {
