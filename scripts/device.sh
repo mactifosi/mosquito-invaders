@@ -40,7 +40,11 @@ UDID="${1:-}"
 
 printf 'Building for %s\n\n' "$UDID"
 
+LOG="${TMPDIR:-/tmp}/caddora-device-build.log"
+LOCKED='may need to be unlocked|still locked|has not been unlocked'
+
 cd ios/App
+set +e
 xcodebuild \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
@@ -48,19 +52,36 @@ xcodebuild \
   -destination "id=$UDID" \
   -derivedDataPath "$DERIVED" \
   -allowProvisioningUpdates \
-  build 2>&1 | tee "${TMPDIR:-/tmp}/caddora-device-build.log" \
-  | grep -E "BUILD (SUCCEEDED|FAILED)|error:" || true
+  build > "$LOG" 2>&1
+BUILD_STATUS=$?
+set -e
+grep -E "BUILD (SUCCEEDED|FAILED)|error:" "$LOG" | head -5 || true
 
-APP="$(find "$DERIVED/Build/Products" -maxdepth 2 -name "*.app" -path "*iphoneos*" | head -1)"
-if [ -z "$APP" ]; then
-  if grep -q "may need to be unlocked" "${TMPDIR:-/tmp}/caddora-device-build.log"; then
-    die "The iPhone is locked. Unlock it (and keep it awake), then run this again."
+# Check the build's own exit status, not merely whether an .app exists: a stale
+# one from a previous run will happily sit there and get installed, which is how
+# a failed build quietly ships an old binary to the phone.
+if [ "$BUILD_STATUS" -ne 0 ]; then
+  if grep -qE "$LOCKED" "$LOG"; then
+    die "The iPhone is locked. Unlock it, keep it awake, and run this again."
   fi
-  die "Build produced no .app. Full log: ${TMPDIR:-/tmp}/caddora-device-build.log"
+  die "Build failed ($BUILD_STATUS). Full log: $LOG"
 fi
 
-printf '\nInstalling %s\n' "$(basename "$APP")"
-xcrun devicectl device install app --device "$UDID" "$APP" >/dev/null
-xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" >/dev/null
+APP="$(find "$DERIVED/Build/Products" -maxdepth 2 -name "*.app" -path "*iphoneos*" | head -1)"
+[ -n "$APP" ] || die "Build succeeded but produced no .app. Log: $LOG"
 
+printf '\nInstalling %s\n' "$(basename "$APP")"
+set +e
+INSTALL_OUT="$(xcrun devicectl device install app --device "$UDID" "$APP" 2>&1)"
+INSTALL_STATUS=$?
+set -e
+if [ "$INSTALL_STATUS" -ne 0 ]; then
+  if printf '%s' "$INSTALL_OUT" | grep -qE "$LOCKED"; then
+    die "The iPhone is locked. Unlock it, keep it awake, and run this again."
+  fi
+  printf '%s\n' "$INSTALL_OUT" >&2
+  die "Install failed."
+fi
+
+xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" >/dev/null
 printf 'Launched on the device.\n'
