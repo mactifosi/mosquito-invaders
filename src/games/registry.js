@@ -17,6 +17,16 @@ export const GAMES = [
     ink: "#20130a",
     playable: true,
   },
+  {
+    id: "piranha",
+    title: "Piranha",
+    marquee: "SHOAL RIVER · ONE BUNNY",
+    blurb: "A maze of algae under the waterline, and four piranhas hunting the bunny eating it. Swallow a carrot and, for seven seconds, they're the ones running.",
+    path: "/piranha",
+    accent: "#ff8a3d",
+    ink: "#231003",
+    playable: true,
+  },
 ];
 
 export const findGame = (id) => GAMES.find((g) => g.id === id) || null;

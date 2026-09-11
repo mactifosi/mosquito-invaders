@@ -31,6 +31,20 @@ They run in milliseconds, run in CI on every push, and gate the Pages deploy. Th
 already caught two real bugs: `onGameOver` firing every frame (saving each run to the
 leaderboard several times over) and `isBossLevel` being unsafe as a predicate.
 
+## Piranha
+
+The second cabinet: a maze under the waterline. A bunny eats algae; four piranhas hunt it.
+Eat a carrot and for seven seconds they flee instead — catch one then and it pays 200,
+doubling for each after within the same carrot.
+
+The four hunters have different temperaments, which is what turns identical pursuers into a
+puzzle: one comes straight at you, one aims four tiles ahead of where you're going, one
+pincers off the first one's position, and one loses its nerve within eight tiles. They
+alternate between hunting and scattering to their own corners, and the whole shoal reverses
+when the mode flips — the tell that something changed.
+
+Swipe to steer on touch, arrows or WASD on a keyboard.
+
 ## Controls
 
 | Action | Keyboard | Touch |
@@ -163,9 +177,17 @@ src/
 │  ├─ daily.js                     # seeded daily challenge
 │  └─ utils.js                     # cn()
 ├─ components/ui/button.jsx        # shadcn-style Button
+├─ engine/                         # shared across cabinets
+│  ├─ useGameLoop.js               # delta-time rAF loop
+│  └─ audio.js                     # synth core + arcade-wide mute
+├─ components/piranha/
+│  ├─ maze.js                      # the maze, mirrored from half-rows
+│  ├─ model.js                     # rules: movement, chase AI, scoring
+│  ├─ draw.js                      # rendering
+│  ├─ Game.jsx                     # component, input, HUD
+│  └─ sounds.js
 └─ components/invaders/
    ├─ Game.jsx                     # constants, makeLevel(), update(), draw(), component
-   ├─ useGameLoop.js               # delta-time rAF loop
    ├─ useTouchControls.js          # input ref + keyboard binding
    ├─ TouchControls.jsx            # on-screen ◀ ▶ / FIRE
    ├─ Hud.jsx                      # score / wave / swarm / craft
@@ -256,6 +278,5 @@ copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 
 ## Ideas not yet built
 
-- A second cabinet — the registry and per-game score keys are ready for one.
 - Backend-backed global leaderboard to supplement the local one.
 - Enemy variety — a boss swarm every N levels.

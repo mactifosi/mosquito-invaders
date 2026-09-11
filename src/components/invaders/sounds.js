@@ -1,74 +1,15 @@
 /**
- * Synthesized retro SFX — no asset files.
- *
- * Every sound is built from oscillators + gain envelopes on demand. The
- * AudioContext is created lazily and must be unlocked from a real user gesture
- * (see sfx.unlock(), called on "Insert Coin" / Continue / Play Again) to satisfy
- * browser autoplay policy.
+ * Mosquito Invaders' voice. The synth core is shared with the rest of the
+ * arcade (see @/engine/audio); this file is only the sound design.
  */
-
-let AC = null;
-let muted = false;
-
-function ac() {
-  if (!AC) {
-    const Ctor = window.AudioContext || window.webkitAudioContext;
-    if (!Ctor) return null;
-    AC = new Ctor();
-  }
-  if (AC.state === "suspended") AC.resume();
-  return AC;
-}
-
-/** A single pitched blip, optionally gliding from f0 to f1. */
-function tone(type, f0, f1, dur, vol = 0.16, delay = 0) {
-  if (muted) return;
-  const c = ac();
-  if (!c) return;
-  const t = c.currentTime + delay;
-  const osc = c.createOscillator();
-  const gain = c.createGain();
-
-  osc.type = type;
-  osc.frequency.setValueAtTime(f0, t);
-  if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
-
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(vol, t + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-
-  osc.connect(gain).connect(c.destination);
-  osc.start(t);
-  osc.stop(t + dur + 0.02);
-}
-
-/** Decaying white noise — impacts and explosions. */
-function noise(dur, vol = 0.2, delay = 0) {
-  if (muted) return;
-  const c = ac();
-  if (!c) return;
-  const n = Math.floor(c.sampleRate * dur);
-  const buf = c.createBuffer(1, n, c.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
-
-  const src = c.createBufferSource();
-  src.buffer = buf;
-  const gain = c.createGain();
-  gain.gain.value = vol;
-  src.connect(gain).connect(c.destination);
-  src.start(c.currentTime + delay);
-}
+import { tone, noise, ac, setMuted } from "@/engine/audio";
 
 export const sfx = {
   /** Set from the arcade's Sound setting. The native app plays through the
    *  silent switch, so this is the only way to keep it quiet. */
-  setMuted(value) {
-    muted = Boolean(value);
-  },
+  setMuted,
   /** Must be called from a user gesture before any other sound. */
   unlock() {
-    if (muted) return;
     ac();
   },
   laser() {

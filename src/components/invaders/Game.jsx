@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useGameLoop } from "@/components/invaders/useGameLoop";
+import { useGameLoop } from "@/engine/useGameLoop";
 import { useTouchControls } from "@/components/invaders/useTouchControls";
 import TouchControls from "@/components/invaders/TouchControls";
 import Hud from "@/components/invaders/Hud";
