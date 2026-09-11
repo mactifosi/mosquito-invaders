@@ -18,38 +18,41 @@
  * animals rather than blobs, so the grid got coarser and the maze smaller to
  * keep the same play area.
  */
-export const TILE = 24;
-export const COLS = 15;
-export const ROWS = 19;
+export const TILE = 21;
+export const COLS = 17;
+export const ROWS = 21;
 
 /**
  * Left half of each row (7 columns) plus the centre column.
  *
- * Laid out as a lattice — corridors on odd rows and columns, walls on even ones,
- * with passages carved by opening the cell between two corridor cells. That
- * makes every corridor exactly one tile wide and every wall one tile thick, by
- * construction: no double lanes and no slabs.
+ * Laid out in the classic arcade idiom rather than as a uniform lattice: blocks
+ * of varied shape, a central pen with one door, an open lane top and bottom, and
+ * a tunnel row that runs off both sides and wraps. Corridors stay one tile wide
+ * — the suite asserts it — while walls are free to be blocks, since the renderer
+ * outlines contiguous walls as one shape rather than tile by tile.
  */
 const HALF_ROWS = [
-  ["#######", "#"],
-  ["#......", "."],
-  ["#.###.#", "."],
-  ["#o..#..", "."],
-  ["#.#.#.#", "#"],
-  ["#......", "."],
-  ["#.#####", "."],
-  ["#.....#", "."],
-  ["#.#####", "-"],
-  ["#...#  ", " "],
-  ["#.#.###", "#"],
-  [" .....#", "."],
-  ["###.#.#", "."],
-  ["#.#....", "."],
-  ["#.###.#", "."],
-  ["#o..#..", "."],
-  ["#.#.###", "."],
-  ["#......", "."],
-  ["#######", "#"],
+  ["########", "#"], //  0  border
+  ["#.......", "#"], //  1
+  ["#.##.##.", "#"], //  2
+  ["#o##.##.", "#"], //  3  power pellets
+  ["#.......", "."], //  4  open lane
+  ["#.##.#.#", "#"], //  5
+  ["#....#..", "."], //  6
+  ["####.###", "."], //  7  above the pen door
+  ["####.###", "-"], //  8  pen roof + door
+  ["####.#  ", " "], //  9  pen interior
+  ["####.###", "#"], // 10  pen floor
+  ["####.###", "."], // 11
+  ["........", "."], // 12  tunnel: runs off both sides and wraps
+  ["####.###", "."], // 13
+  ["#.......", "."], // 14  open lane
+  ["#o##.##.", "#"], // 15  power pellets
+  ["#..#....", "."], // 16
+  ["##.#.##.", "#"], // 17
+  ["#....#..", "."], // 18
+  ["#.##.##.", "#"], // 19
+  ["########", "#"], // 20  border
 ];
 
 const mirror = (half) => half.split("").reverse().join("");
@@ -57,7 +60,7 @@ const mirror = (half) => half.split("").reverse().join("");
 /** The maze as an array of 21-character strings. */
 export const MAZE = HALF_ROWS.map(([left, centre]) => left + centre + mirror(left));
 
-export const TUNNEL_ROW = 11; // wraps left/right, the way a river runs off-screen
+export const TUNNEL_ROW = 12; // wraps left/right, the way a river runs off-screen
 
 /* ---- tile queries ---- */
 
@@ -96,7 +99,11 @@ export const tileOf = (x, y) => ({
   row: Math.floor(y / TILE),
 });
 
-/** Wrap horizontally through the tunnel; vertically there's nowhere to go. */
+/**
+ * Wrap horizontally through the tunnel; vertically there's nowhere to go.
+ * Leaving the left mouth puts you just outside the right one, still travelling
+ * in the same direction, so the crossing looks continuous.
+ */
 export function wrapX(x) {
   if (x < -TILE / 2) return MAZE_W + TILE / 2;
   if (x > MAZE_W + TILE / 2) return -TILE / 2;

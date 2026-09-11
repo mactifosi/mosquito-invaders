@@ -23,10 +23,10 @@ import {
 
 /* Scaled with TILE: a 24px grid needs proportionally faster swimming to feel
    the same, otherwise everything wades. */
-export const BUNNY_SPEED = 114; // px/sec
-export const FISH_SPEED = 105;
-export const FISH_FRIGHTENED_SPEED = 66;
-export const FISH_EATEN_SPEED = 255; // hurrying home as a pair of eyes
+export const BUNNY_SPEED = 100; // px/sec, scaled with TILE
+export const FISH_SPEED = 92;
+export const FISH_FRIGHTENED_SPEED = 58;
+export const FISH_EATEN_SPEED = 223; // hurrying home as a pair of eyes
 
 export const PELLET_POINTS = 10;
 export const CARROT_POINTS = 50;
@@ -40,9 +40,9 @@ export const DEATH_TIME = 1.4;
  * looked right but is a vertical shaft, so it could only ever swim up or down
  * from a standing start, which feels broken in the first second of play.
  */
-export const BUNNY_START = { col: 7, row: 13 };
-export const DEN = { col: 7, row: 9 };
-export const DEN_EXIT = { col: 7, row: 7 };
+export const BUNNY_START = { col: 8, row: 16 };
+export const DEN = { col: 8, row: 9 };
+export const DEN_EXIT = { col: 8, row: 7 };
 
 /**
  * Four hunters, four temperaments — that's what turns identical pursuers into a
@@ -53,8 +53,8 @@ export const FISH = [
     id: "razor",
     colour: "#e0384f",
     behaviour: "direct", // straight for the bunny
-    scatter: { col: 13, row: 1 },
-    start: { col: 7, row: 7 },
+    scatter: { col: 15, row: 1 },
+    start: { col: 8, row: 7 },
     releaseAt: 0,
   },
   {
@@ -62,23 +62,23 @@ export const FISH = [
     colour: "#ff8a3d",
     behaviour: "ambush", // four tiles ahead of where the bunny is going
     scatter: { col: 1, row: 1 },
-    start: { col: 6, row: 9 },
+    start: { col: 7, row: 9 },
     releaseAt: 3,
   },
   {
     id: "coral",
     colour: "#f472b6",
     behaviour: "flank", // plays off the direct one, pincering
-    scatter: { col: 13, row: 17 },
-    start: { col: 7, row: 9 },
+    scatter: { col: 15, row: 19 },
+    start: { col: 8, row: 9 },
     releaseAt: 7,
   },
   {
     id: "kelp",
     colour: "#6fe3c0",
     behaviour: "shy", // chases from afar, loses nerve up close
-    scatter: { col: 1, row: 17 },
-    start: { col: 8, row: 9 },
+    scatter: { col: 1, row: 19 },
+    start: { col: 9, row: 9 },
     releaseAt: 12,
   },
 ];
@@ -161,7 +161,12 @@ function snapToCentre(before, after, step) {
  */
 function canGo(g, col, row, dir, throughDoor = false) {
   const d = DIRS[dir];
-  return !isWall(g.maze, col + d.x, row + d.y, { fish: throughDoor });
+  const nc = col + d.x;
+  const nr = row + d.y;
+  // The tunnel mouths sit outside the grid, where every lookup reads as wall.
+  // On that row, leaving sideways is exactly what's meant to happen.
+  if (row === TUNNEL_ROW && d.y === 0 && (nc < 0 || nc >= COLS)) return true;
+  return !isWall(g.maze, nc, nr, { fish: throughDoor });
 }
 
 function distance(a, b) {
@@ -196,6 +201,78 @@ export function targetFor(g, f) {
   }
 }
 
+/** Columns wrap on the tunnel row, and nowhere else. */
+const wrapCol = (c) => ((c % COLS) + COLS) % COLS;
+
+function neighbours(g, col, row, throughDoor) {
+  const out = [];
+  for (const dir of ["up", "left", "down", "right"]) {
+    const d = DIRS[dir];
+    let nc = col + d.x;
+    const nr = row + d.y;
+    if (row === TUNNEL_ROW && d.y === 0) nc = wrapCol(nc);
+    if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+    if (isWall(g.maze, nc, nr, { fish: throughDoor })) continue;
+    out.push({ dir, col: nc, row: nr });
+  }
+  return out;
+}
+
+/**
+ * Distance in tiles from every reachable tile to a target, by breadth-first
+ * search.
+ *
+ * Straight-line distance — the classic rule — can't cope with a tunnel that
+ * wraps: a hunter would keep choosing "left" because left always looked closer,
+ * ride the tunnel round and round, and never turn off toward its quarry. Real
+ * path distance has no local minima, so a fish that wants you finds you.
+ *
+ * Cached per target per frame: four fish usually share one or two targets.
+ */
+function distanceField(g, target, throughDoor) {
+  const key = `${target.col},${target.row},${throughDoor ? 1 : 0}`;
+  if (!g.fields || g.fieldsAt !== g.t) {
+    g.fields = new Map();
+    g.fieldsAt = g.t;
+  }
+  const cached = g.fields.get(key);
+  if (cached) return cached;
+
+  const dist = new Int16Array(COLS * ROWS).fill(-1);
+  const start = { col: Math.max(0, Math.min(COLS - 1, target.col)), row: Math.max(0, Math.min(ROWS - 1, target.row)) };
+  if (isWall(g.maze, start.col, start.row, { fish: true })) {
+    // A target inside a wall (an ambush point can land in one) — fall back to
+    // the nearest open tile, so the field is never empty.
+    outer: for (let radius = 1; radius < 6; radius++) {
+      for (let dr = -radius; dr <= radius; dr++) {
+        for (let dc = -radius; dc <= radius; dc++) {
+          const c = start.col + dc;
+          const r = start.row + dr;
+          if (c < 0 || r < 0 || c >= COLS || r >= ROWS) continue;
+          if (!isWall(g.maze, c, r, { fish: true })) { start.col = c; start.row = r; break outer; }
+        }
+      }
+    }
+  }
+
+  const queue = [start.row * COLS + start.col];
+  dist[queue[0]] = 0;
+  for (let head = 0; head < queue.length; head++) {
+    const idx = queue[head];
+    const col = idx % COLS;
+    const row = (idx / COLS) | 0;
+    for (const n of neighbours(g, col, row, throughDoor)) {
+      const ni = n.row * COLS + n.col;
+      if (dist[ni] !== -1) continue;
+      dist[ni] = dist[idx] + 1;
+      queue.push(ni);
+    }
+  }
+
+  g.fields.set(key, dist);
+  return dist;
+}
+
 /** Fish choose at tile centres: best legal direction, never a straight reverse. */
 function chooseDirection(g, f, target) {
   const { col, row } = tileOf(f.x, f.y);
@@ -209,11 +286,17 @@ function chooseDirection(g, f, target) {
     return legal[Math.floor(g.rng() * legal.length)]; // panic, not strategy
   }
 
+  const field = distanceField(g, target, throughDoor);
   let best = legal[0];
   let bestDist = Infinity;
   for (const d of legal) {
     const step = DIRS[d];
-    const dist = distance({ col: col + step.x, row: row + step.y }, target);
+    let nc = col + step.x;
+    const nr = row + step.y;
+    if (row === TUNNEL_ROW && step.y === 0) nc = wrapCol(nc);
+    if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+    const dist = field[nr * COLS + nc];
+    if (dist === -1) continue; // unreachable from here
     if (dist < bestDist) {
       bestDist = dist;
       best = d;

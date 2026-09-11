@@ -74,8 +74,8 @@ for (let r = 0; r < maze.ROWS - 1; r++) {
 }
 check("no double lanes — every corridor is one tile wide", doubleLanes.length === 0,
   doubleLanes.slice(0, 3).join(" ") || "none");
-check("no slabs — every interior wall is one tile thick", slabs.length === 0,
-  slabs.slice(0, 3).join(" ") || "none");
+// Walls are allowed to be blocks in this idiom — contiguous ones are drawn as a
+// single outlined shape — so only the corridors are held to one tile.
 
 const reach = maze.reachableTiles(maze.MAZE, model.BUNNY_START.col, model.BUNNY_START.row);
 let orphans = 0;
@@ -92,7 +92,7 @@ check("there are pellets and exactly four carrots",
   `${pellets.total} pellets`);
 
 check("the den door blocks the bunny but not the fish",
-  maze.isWall(maze.MAZE, 7, 8, { fish: false }) && !maze.isWall(maze.MAZE, 7, 8, { fish: true }),
+  maze.isWall(maze.MAZE, 8, 8, { fish: false }) && !maze.isWall(maze.MAZE, 8, 8, { fish: true }),
   "");
 
 /* ---- movement ---- */
@@ -106,14 +106,37 @@ check("the bunny swims and eats as it goes", g.bunny.x < startX && c.seen.score 
 
 g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
-g.bunny.x = maze.tileCentre(1, 17).x;   // hard against the left wall
-g.bunny.y = maze.tileCentre(1, 17).y;
+g.bunny.x = maze.tileCentre(1, 14).x;   // hard against the left wall
+g.bunny.y = maze.tileCentre(1, 14).y;
 g.bunny.dir = "left";
 step(g, c, { want: "left" }, 1);
 const stopped = maze.tileOf(g.bunny.x, g.bunny.y);
 check("a wall stops the bunny rather than swallowing it",
-  stopped.col === 1 && stopped.row === 17 && Math.abs(g.bunny.x - maze.tileCentre(1, 17).x) < 2,
+  stopped.col === 1 && stopped.row === 14 && Math.abs(g.bunny.x - maze.tileCentre(1, 14).x) < 2,
   `tile ${stopped.col},${stopped.row}`);
+
+// The tunnel: off one side, in at the other.
+g = model.makeLevel(1, 0, 3); c = cb();
+g.intro = 0;
+g.bunny.x = maze.tileCentre(1, maze.TUNNEL_ROW).x;
+g.bunny.y = maze.tileCentre(1, maze.TUNNEL_ROW).y;
+g.bunny.dir = "left";
+step(g, c, { want: "left" }, 1.2);
+check("the bunny leaves one side of the tunnel and returns on the other",
+  g.bunny.x > maze.MAZE_W * 0.6,
+  `x=${Math.round(g.bunny.x)} of ${maze.MAZE_W}`);
+
+// ...and a fish can use it too, or it becomes a free escape.
+g = model.makeLevel(1, 0, 3); c = cb();
+g.intro = 0;
+const runner = g.fish[0];
+runner.state = "hunting";
+runner.x = maze.tileCentre(1, maze.TUNNEL_ROW).x;
+runner.y = maze.tileCentre(1, maze.TUNNEL_ROW).y;
+runner.dir = "left";
+step(g, c, {}, 1.2);
+check("the fish can follow through the tunnel", g.fish[0].x > maze.MAZE_W * 0.5,
+  `x=${Math.round(g.fish[0].x)}`);
 
 /* ---- the chase ---- */
 // Against a stationary bunny (wedged against the left wall), a greedy chaser
@@ -123,8 +146,8 @@ g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
 g.mode = "chase";
 g.modeTimer = Infinity;
-g.bunny.x = maze.tileCentre(1, 17).x;
-g.bunny.y = maze.tileCentre(1, 17).y;
+g.bunny.x = maze.tileCentre(1, 14).x;
+g.bunny.y = maze.tileCentre(1, 14).y;
 g.bunny.dir = "left";
 // The measure of a working chase isn't distance — it's arrival. (Measuring
 // distance after the fact compares post-respawn positions, since a catch

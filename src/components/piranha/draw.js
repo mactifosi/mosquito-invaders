@@ -21,13 +21,19 @@ function drawMaze(ctx, g) {
       const x = c * TILE;
       const y = r * TILE;
       if (t === "#") {
-        // Outlined blocks rather than solid ones: filled tiles crowded the
-        // corridors and the route through the maze stopped being readable.
+        // Contiguous walls are drawn as one shape: fill every wall tile, then
+        // light only the edges that face open water. Outlining each tile
+        // separately made a block of wall read as a stack of bricks.
         ctx.fillStyle = WALL;
-        ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
-        ctx.strokeStyle = WALL_LIP;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x + 2.5, y + 2.5, TILE - 5, TILE - 5);
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = WALL_LIP;
+        const solid = (cc, rr) =>
+          cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && g.maze[rr][cc] === "#";
+        const E = 2; // edge thickness
+        if (!solid(c, r - 1)) ctx.fillRect(x, y, TILE, E);
+        if (!solid(c, r + 1)) ctx.fillRect(x, y + TILE - E, TILE, E);
+        if (!solid(c - 1, r)) ctx.fillRect(x, y, E, TILE);
+        if (!solid(c + 1, r)) ctx.fillRect(x + TILE - E, y, E, TILE);
       } else if (t === "-") {
         ctx.fillStyle = "#8bd0e0";
         ctx.fillRect(x, y + TILE / 2 - 1, TILE, 2);
