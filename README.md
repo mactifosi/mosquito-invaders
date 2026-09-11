@@ -226,13 +226,18 @@ export ASC_ISSUER_ID=<uuid>   # once, from App Store Connect → Users and Acces
 npm run release               # bump the build number, archive, upload to TestFlight
 ```
 
-`npm run release` is `bump` + `archive` + `upload`. The upload authenticates with an App
-Store Connect API key (`~/.appstoreconnect/private_keys/AuthKey_<id>.p8`), so it doesn't
-depend on an Xcode login session — those expire, and Organizer reports it only as
+`npm run release` is `archive` → `upload` → `bump`, in that order. The upload
+authenticates with an App Store Connect API key
+(`~/.appstoreconnect/private_keys/AuthKey_<id>.p8`), so it doesn't depend on an Xcode login
+session — those expire, and Organizer reports it only as
 `DistributionAppRecordProviderError error 0`. No credentials live in this repo: the key
 stays on disk and the issuer ID comes from the environment.
 
-The bump matters — App Store Connect rejects a build number it has already seen.
+**The bump comes last, and that ordering matters.** App Store Connect rejects a build
+number it has already seen, so each upload needs a fresh one — but bumping *first* means an
+archive or upload that fails still burns a number. Build 6 was lost that way and the
+sequence jumped 5 → 7. With the bump last, the number sitting in the project is always the
+next one that hasn't been uploaded.
 
 One wrinkle worth knowing before you tidy it away: the Xcode project is
 `ios/App/Caddora Games.xcodeproj`, and `ios/App/App.xcodeproj` is a **symlink** pointing at

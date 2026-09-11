@@ -9,10 +9,10 @@
     "preview": "vite preview",
     "build:native": "CAP_BUILD=1 vite build && cap sync ios",
     "ios": "npm run build:native && open 'ios/App/Caddora Games.xcodeproj'",
-    "archive": "npm run build:native && cd ios/App && xcodebuild -project 'Caddora Games.xcodeproj' -scheme 'Caddora Games' -configuration Release -destination 'generic/platform=iOS' -archivePath \"$HOME/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/CaddoraGames $(date '+%d-%m-%Y, %H.%M').xcarchive\" archive -allowProvisioningUpdates",
+    "archive": "npm run build:native && ./scripts/archive.sh",
     "bump": "./scripts/bump-build.sh",
     "upload": "./scripts/upload-testflight.sh",
-    "release": "npm run bump && npm run archive && npm run upload",
+    "release": "npm run archive && npm run upload && npm run bump",
     "test": "node test/game.test.mjs && node test/piranha.test.mjs"
   },
   "dependencies": {

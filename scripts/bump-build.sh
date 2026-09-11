@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 #
-# Increment CURRENT_PROJECT_VERSION. App Store Connect rejects a build number
-# it has already seen, so every upload needs a fresh one.
+# Increment CURRENT_PROJECT_VERSION.
+#
+# Run *after* a successful upload, not before one: the invariant is that the
+# number in the project is the next one not yet uploaded. Bumping first meant
+# any archive or upload that failed still burned a number — build 6 was lost
+# that way and the sequence jumped 5 → 7.
 
 set -euo pipefail
 
