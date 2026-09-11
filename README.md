@@ -219,6 +219,17 @@ The game also ships as a native iOS app (Capacitor), published to TestFlight as
 **CaddoraGames** (`com.caddora.games`). `npm run ios` builds the web assets, syncs them into
 the native project and opens Xcode; `npm run archive` produces a distributable archive.
 
+### Onto a phone, quickly
+
+```bash
+npm run device        # build, install and launch on a connected iPhone
+npm run device <udid> # ...or a specific one
+```
+
+Development signing over the cable (or over the network, if the phone is paired) — no
+TestFlight processing wait. It replaces whatever is installed under the same bundle id,
+including a TestFlight build, and its provisioning lasts about a year.
+
 ### Shipping a build
 
 ```bash

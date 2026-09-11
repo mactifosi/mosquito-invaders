@@ -13,7 +13,8 @@
     "bump": "./scripts/bump-build.sh",
     "upload": "./scripts/upload-testflight.sh",
     "release": "npm run archive && npm run upload && npm run bump",
-    "test": "node test/game.test.mjs && node test/piranha.test.mjs"
+    "test": "node test/game.test.mjs && node test/piranha.test.mjs",
+    "device": "npm run build:native && ./scripts/device.sh"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",
