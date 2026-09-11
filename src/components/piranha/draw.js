@@ -44,15 +44,17 @@ function drawPellets(ctx, g) {
       const { x, y } = tileCentre(c, r);
       if (p === ".") {
         ctx.fillStyle = "#9fe8c9"; // algae
-        ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+        ctx.fillRect(x - 2, y - 2, 4, 4);
       } else {
         // The carrot: unmistakable, and it pulses so you can find it in a panic.
         const pulse = 1 + Math.sin(g.t * 6) * 0.12;
         ctx.fillStyle = "#ff8a3d";
-        ctx.fillRect(x - 2 * pulse, y - 5 * pulse, 4 * pulse, 9 * pulse);
-        ctx.fillStyle = "#6fe3c0";
-        ctx.fillRect(x - 3, y - 7, 2, 3);
-        ctx.fillRect(x + 1, y - 7, 2, 3);
+        ctx.fillRect(x - 3 * pulse, y - 6 * pulse, 6 * pulse, 12 * pulse);
+        ctx.fillStyle = "#c96a26";
+        ctx.fillRect(x - 3 * pulse, y - 2, 6 * pulse, 1);
+        ctx.fillStyle = "#6fe3c0"; // leaves
+        ctx.fillRect(x - 4, y - 10, 3, 4);
+        ctx.fillRect(x + 1, y - 10, 3, 4);
       }
     }
   }
@@ -60,30 +62,39 @@ function drawPellets(ctx, g) {
 
 function drawBunny(ctx, g) {
   const b = g.bunny;
-  const kick = Math.sin(b.mouth) * 1.5; // paddling
+  const kick = Math.sin(b.mouth) * 2; // paddling
   const x = Math.round(b.x);
   const y = Math.round(b.y);
-  const facingLeft = b.dir === "left";
+  const left = b.dir === "left";
+  const f = left ? -1 : 1; // facing multiplier
+
+  // Ears, laid back along the water like a swimming rabbit's.
+  ctx.fillStyle = "#efe6dc";
+  ctx.fillRect(x - f * 2, y - 10 - kick * 0.5, 3, 7);
+  ctx.fillRect(x - f * 6, y - 9 + kick * 0.5, 3, 7);
+  ctx.fillStyle = "#f9b4c8";
+  ctx.fillRect(x - f * 2 + 1, y - 9 - kick * 0.5, 1, 5);
+  ctx.fillRect(x - f * 6 + 1, y - 8 + kick * 0.5, 1, 5);
 
   ctx.fillStyle = "#f5f0e6";
-  ctx.fillRect(x - 6, y - 4, 12, 9); // body
-  ctx.fillRect(x - 4, y - 9 - kick, 3, 6); // ears
-  ctx.fillRect(x + 1, y - 9 + kick, 3, 6);
-  ctx.fillStyle = "#f9b4c8";
-  ctx.fillRect(x - 3.5, y - 8 - kick, 1.5, 4);
-  ctx.fillRect(x + 1.5, y - 8 + kick, 1.5, 4);
+  ctx.fillRect(x - 8, y - 5, 16, 11); // body
+  ctx.fillRect(x + f * 6, y - 4, 4, 8); // head, out front
+  ctx.fillRect(x - f * 9, y - 3, 3, 6); // haunch
 
-  ctx.fillStyle = "#2a1b2e"; // eye, on the side it's facing
-  ctx.fillRect(facingLeft ? x - 4 : x + 2, y - 2, 2, 2);
-  ctx.fillStyle = "#f9b4c8";
-  ctx.fillRect(facingLeft ? x - 6 : x + 4, y, 2, 2); // nose
+  ctx.fillStyle = "#fffdf8"; // belly highlight
+  ctx.fillRect(x - 6, y + 2, 12, 3);
 
-  ctx.fillStyle = "#efe6ff"; // tail
-  ctx.fillRect(facingLeft ? x + 5 : x - 7, y - 1, 3, 3);
+  ctx.fillStyle = "#2a1b2e"; // eye
+  ctx.fillRect(x + f * 6, y - 3, 2, 2);
+  ctx.fillStyle = "#f9b4c8"; // nose
+  ctx.fillRect(x + f * 9, y, 2, 2);
 
-  ctx.fillStyle = "rgba(159,232,201,.45)"; // paddling feet
-  ctx.fillRect(x - 4, y + 5, 3, 2 + kick);
-  ctx.fillRect(x + 1, y + 5, 3, 2 - kick);
+  ctx.fillStyle = "#fffdf8"; // scut
+  ctx.fillRect(x - f * 11, y - 2, 4, 4);
+
+  ctx.fillStyle = "rgba(159,232,201,.5)"; // paddling feet
+  ctx.fillRect(x - 5, y + 6, 4, 3 + kick);
+  ctx.fillRect(x + 2, y + 6, 4, 3 - kick);
 }
 
 function drawFish(ctx, g, f) {
@@ -93,33 +104,45 @@ function drawFish(ctx, g, f) {
   // Flash white as the carrot runs out — the last warning before they turn.
   const flashing = frightened && g.frightened < 2 && Math.floor(g.frightened * 6) % 2 === 0;
   const body = f.state === "eaten" ? null : flashing ? "#efe6ff" : frightened ? "#3b6ea8" : f.colour;
-  const facingLeft = f.dir === "left";
+  const left = f.dir === "left";
+  const d = left ? -1 : 1;
+  const chomp = Math.sin(g.t * 12 + x * 0.3) > 0;
 
   if (body) {
     ctx.fillStyle = body;
-    ctx.fillRect(x - 6, y - 4, 11, 9); // body
-    // tail
-    ctx.fillRect(facingLeft ? x + 5 : x - 8, y - 3, 3, 7);
-    ctx.fillRect(facingLeft ? x + 7 : x - 9, y - 5, 2, 11);
-    ctx.fillStyle = "rgba(11,9,16,.25)";
-    ctx.fillRect(x - 4, y - 4, 7, 2); // dorsal shading
+    // Deep, blunt-headed body — a piranha is tall for its length.
+    ctx.fillRect(x - 7, y - 6, 14, 13);
+    ctx.fillRect(x + d * 7, y - 4, 3, 9); // snout
+    ctx.fillRect(x - d * 8, y - 4, 2, 9); // peduncle
 
-    // Teeth — the whole point of a piranha.
+    ctx.fillStyle = "rgba(255,255,255,.18)"; // flank sheen
+    ctx.fillRect(x - 5, y - 4, 10, 3);
+    ctx.fillStyle = "rgba(11,9,16,.3)"; // dorsal
+    ctx.fillRect(x - 4, y - 7, 8, 2);
+
+    ctx.fillStyle = body; // tail fin
+    ctx.fillRect(x - d * 11, y - 7, 3, 5);
+    ctx.fillRect(x - d * 11, y + 2, 3, 5);
+    ctx.fillRect(x - d * 10, y - 3, 2, 7);
+
+    ctx.fillStyle = "rgba(11,9,16,.25)"; // pectoral fin
+    ctx.fillRect(x - d * 1, y + 4, 5, 3);
+
+    // The jaw: underslung, and the teeth are the whole point.
+    const jaw = x + d * 5;
+    ctx.fillStyle = "#2a0b10";
+    ctx.fillRect(left ? jaw - 6 : jaw, y + (chomp ? 1 : 2), 6, chomp ? 4 : 3);
     ctx.fillStyle = "#ffffff";
-    const mouthX = facingLeft ? x - 6 : x + 2;
-    const chomp = Math.sin(g.t * 14 + x) > 0 ? 1 : 2;
-    ctx.fillRect(mouthX, y + 1, 4, chomp);
-    if (!frightened) {
-      ctx.fillRect(facingLeft ? mouthX : mouthX + 3, y - 1, 1, 2);
-      ctx.fillRect(facingLeft ? mouthX + 3 : mouthX, y - 1, 1, 2);
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(left ? jaw - 5 + i * 2 : jaw + 1 + i * 2, y + (chomp ? 1 : 2), 1, 2);
     }
   }
 
-  // Eyes stay visible even when it's been eaten — that's all that swims home.
+  // Eyes stay visible even once eaten — that's all that swims home.
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(facingLeft ? x - 4 : x + 1, y - 3, 3, 3);
+  ctx.fillRect(x + d * 2, y - 4, 4, 4);
   ctx.fillStyle = frightened && !flashing ? "#9fe8c9" : "#0b0910";
-  ctx.fillRect(facingLeft ? x - 4 : x + 2, y - 2, 2, 2);
+  ctx.fillRect(x + d * 3, y - 3, 2, 2);
 }
 
 function drawHudBanner(ctx, g) {

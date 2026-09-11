@@ -292,7 +292,11 @@ export default function Piranha() {
                     : "SWIM AGAIN"}
                 </Button>
                 {(status === "ready" || status === "gameover") && (
-                  <Leaderboard scores={scores} highlight={status === "gameover" ? score : null} />
+                  <Leaderboard
+                    scores={scores}
+                    highlight={status === "gameover" ? score : null}
+                    title="Shoal river · deepest runs"
+                  />
                 )}
               </>
             )}

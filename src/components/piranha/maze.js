@@ -13,35 +13,36 @@
  * soft-lock, and it's the kind of mistake that's invisible until wave 3.
  */
 
-export const TILE = 16;
-export const COLS = 21;
-export const ROWS = 23;
+/**
+ * 24px tiles rather than 16: the fish and the bunny need room to read as
+ * animals rather than blobs, so the grid got coarser and the maze smaller to
+ * keep the same play area.
+ */
+export const TILE = 24;
+export const COLS = 15;
+export const ROWS = 19;
 
 /** Left half of each row (10 columns) plus the centre column. */
 const HALF_ROWS = [
-  ["##########", "#"],
-  ["#........#", "."],
-  ["#o##.###.#", "."],
-  ["#.##.###.#", "."],
-  ["#.........", "."],
-  ["#.##.#.###", "#"],
-  ["#....#....", "#"],
-  ["####.####.", "#"],
-  ["   #.#....", "."],
-  ["####.#.##-", "-"],
-  ["    .  #  ", " "],
-  ["####.#.###", "#"],
-  ["   #......", "."],
-  ["####.####.", "."],
-  ["#........#", "."],
-  ["#.##.###.#", "."],
-  ["#o.#.....#", "."],
-  ["##.#.#.###", "#"],
-  ["#....#....", "#"],
-  ["#.########", "."],
-  ["#.........", "."],
-  ["#........#", "."],
-  ["##########", "#"],
+  ["#######", "#"],
+  ["#.....#", "."],
+  ["#o###.#", "."],
+  ["#.....#", "."],
+  ["#.###.#", "."],
+  ["#......", "."],
+  ["###.##.", "#"],
+  ["####...", "."],
+  ["####.##", "-"],
+  ["####.# ", " "],
+  ["####.##", "#"],
+  ["####...", "."],
+  ["   #...", "."],
+  ["###..#.", "#"],
+  ["#......", "."],
+  ["#.###.#", "."],
+  ["#o....#", "."],
+  ["#.....#", "."],
+  ["#######", "#"],
 ];
 
 const mirror = (half) => half.split("").reverse().join("");
@@ -49,7 +50,7 @@ const mirror = (half) => half.split("").reverse().join("");
 /** The maze as an array of 21-character strings. */
 export const MAZE = HALF_ROWS.map(([left, centre]) => left + centre + mirror(left));
 
-export const TUNNEL_ROW = 10; // wraps left/right, the way a river runs off-screen
+export const TUNNEL_ROW = 12; // wraps left/right, the way a river runs off-screen
 
 /* ---- tile queries ---- */
 

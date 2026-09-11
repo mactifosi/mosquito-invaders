@@ -21,10 +21,12 @@ import {
   MAZE_W,
 } from "@/components/piranha/maze";
 
-export const BUNNY_SPEED = 76; // px/sec
-export const FISH_SPEED = 70;
-export const FISH_FRIGHTENED_SPEED = 44;
-export const FISH_EATEN_SPEED = 170; // hurrying home as a pair of eyes
+/* Scaled with TILE: a 24px grid needs proportionally faster swimming to feel
+   the same, otherwise everything wades. */
+export const BUNNY_SPEED = 114; // px/sec
+export const FISH_SPEED = 105;
+export const FISH_FRIGHTENED_SPEED = 66;
+export const FISH_EATEN_SPEED = 255; // hurrying home as a pair of eyes
 
 export const PELLET_POINTS = 10;
 export const CARROT_POINTS = 50;
@@ -38,9 +40,9 @@ export const DEATH_TIME = 1.4;
  * looked right but is a vertical shaft, so it could only ever swim up or down
  * from a standing start, which feels broken in the first second of play.
  */
-export const BUNNY_START = { col: 10, row: 20 };
-export const DEN = { col: 10, row: 10 };
-export const DEN_EXIT = { col: 10, row: 8 };
+export const BUNNY_START = { col: 7, row: 14 };
+export const DEN = { col: 7, row: 9 };
+export const DEN_EXIT = { col: 7, row: 7 };
 
 /**
  * Four hunters, four temperaments — that's what turns identical pursuers into a
@@ -51,8 +53,8 @@ export const FISH = [
     id: "razor",
     colour: "#e0384f",
     behaviour: "direct", // straight for the bunny
-    scatter: { col: 19, row: 1 },
-    start: { col: 10, row: 8 },
+    scatter: { col: 13, row: 1 },
+    start: { col: 7, row: 7 },
     releaseAt: 0,
   },
   {
@@ -60,23 +62,23 @@ export const FISH = [
     colour: "#ff8a3d",
     behaviour: "ambush", // four tiles ahead of where the bunny is going
     scatter: { col: 1, row: 1 },
-    start: { col: 9, row: 10 },
+    start: { col: 6, row: 9 },
     releaseAt: 3,
   },
   {
     id: "coral",
     colour: "#f472b6",
     behaviour: "flank", // plays off the direct one, pincering
-    scatter: { col: 19, row: 21 },
-    start: { col: 10, row: 10 },
+    scatter: { col: 13, row: 17 },
+    start: { col: 7, row: 9 },
     releaseAt: 7,
   },
   {
     id: "kelp",
     colour: "#6fe3c0",
     behaviour: "shy", // chases from afar, loses nerve up close
-    scatter: { col: 1, row: 21 },
-    start: { col: 11, row: 10 },
+    scatter: { col: 1, row: 17 },
+    start: { col: 8, row: 9 },
     releaseAt: 12,
   },
 ];
@@ -131,7 +133,25 @@ export function makeLevel(level, score, lives, opts = {}) {
 
 /* ---- movement helpers ---- */
 
-const centred = (v) => Math.abs((v % TILE) - TILE / 2) < 1.5;
+const centred = (v) => Math.abs((v % TILE) - TILE / 2) < 0.6;
+
+/**
+ * If this step crosses a tile centre, stop exactly on it.
+ *
+ * Turns are only allowed at centres, and at 24px tiles an actor moves up to
+ * 4px a frame — enough to step straight over the centre and never register as
+ * being on one, so turns would silently fail. Snapping makes that impossible
+ * at any speed, at the cost of a hair of velocity through junctions.
+ */
+function snapToCentre(before, after, step) {
+  if (step === 0) return after;
+  if (step > 0) {
+    const centre = (Math.floor((before - TILE / 2) / TILE) + 1) * TILE + TILE / 2;
+    return centre <= after ? centre : after;
+  }
+  const centre = (Math.ceil((before - TILE / 2) / TILE) - 1) * TILE + TILE / 2;
+  return centre >= after ? centre : after;
+}
 
 /**
  * Is the tile in `dir` passable? The den door is one-way: only a fish that has
@@ -211,8 +231,12 @@ function moveAlong(g, actor, dir, speed, dt, throughDoor) {
   const blocked = !canGo(g, col, row, dir, throughDoor);
   if (blocked && centred(x) && centred(y)) return { x, y, moved: false };
 
+  const fromX = x;
+  const fromY = y;
   x += step.x * speed * dt;
   y += step.y * speed * dt;
+  x = snapToCentre(fromX, x, step.x);
+  y = snapToCentre(fromY, y, step.y);
 
   // Stay glued to the corridor's centre line on the other axis.
   if (step.x !== 0) y = tileCentre(col, row).y;

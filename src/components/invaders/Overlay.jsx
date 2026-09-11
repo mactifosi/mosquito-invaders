@@ -165,7 +165,13 @@ export default function Overlay({
         </div>
       )}
 
-      {!isLevelUp && <Leaderboard scores={scores} highlight={isReady ? null : score} />}
+      {!isLevelUp && (
+        <Leaderboard
+          scores={scores}
+          highlight={isReady ? null : score}
+          title="Sector 7 · top pilots"
+        />
+      )}
     </div>
   );
 }

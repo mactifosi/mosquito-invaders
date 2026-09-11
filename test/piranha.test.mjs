@@ -68,11 +68,11 @@ check("every pellet is reachable from the bunny's start", orphans === 0, `${orph
 
 const pellets = maze.makePellets();
 check("there are pellets and exactly four carrots",
-  pellets.total > 150 && maze.MAZE.join("").split("o").length - 1 === 4,
+  pellets.total > 100 && maze.MAZE.join("").split("o").length - 1 === 4,
   `${pellets.total} pellets`);
 
 check("the den door blocks the bunny but not the fish",
-  maze.isWall(maze.MAZE, 10, 9, { fish: false }) && !maze.isWall(maze.MAZE, 10, 9, { fish: true }),
+  maze.isWall(maze.MAZE, 7, 8, { fish: false }) && !maze.isWall(maze.MAZE, 7, 8, { fish: true }),
   "");
 
 /* ---- movement ---- */
@@ -86,13 +86,13 @@ check("the bunny swims and eats as it goes", g.bunny.x < startX && c.seen.score 
 
 g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
-g.bunny.x = maze.tileCentre(1, 20).x;   // hard against the left wall
-g.bunny.y = maze.tileCentre(1, 20).y;
+g.bunny.x = maze.tileCentre(1, 14).x;   // hard against the left wall
+g.bunny.y = maze.tileCentre(1, 14).y;
 g.bunny.dir = "left";
 step(g, c, { want: "left" }, 1);
 const stopped = maze.tileOf(g.bunny.x, g.bunny.y);
 check("a wall stops the bunny rather than swallowing it",
-  stopped.col === 1 && stopped.row === 20 && Math.abs(g.bunny.x - maze.tileCentre(1, 20).x) < 2,
+  stopped.col === 1 && stopped.row === 14 && Math.abs(g.bunny.x - maze.tileCentre(1, 14).x) < 2,
   `tile ${stopped.col},${stopped.row}`);
 
 /* ---- the chase ---- */
@@ -103,8 +103,8 @@ g = model.makeLevel(1, 0, 3); c = cb();
 g.intro = 0;
 g.mode = "chase";
 g.modeTimer = Infinity;
-g.bunny.x = maze.tileCentre(1, 20).x;
-g.bunny.y = maze.tileCentre(1, 20).y;
+g.bunny.x = maze.tileCentre(1, 14).x;
+g.bunny.y = maze.tileCentre(1, 14).y;
 g.bunny.dir = "left";
 // The measure of a working chase isn't distance — it's arrival. (Measuring
 // distance after the fact compares post-respawn positions, since a catch

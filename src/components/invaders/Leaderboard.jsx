@@ -7,13 +7,13 @@ const MEDAL = ["text-[#ffb02e]", "text-[#d8d3e4]", "text-[#c98a5b]"];
  * Ranked local scores. `highlight` marks the run that just ended — matched
  * once, so a repeat of the same score doesn't light up every row.
  */
-export default function Leaderboard({ scores, highlight = null }) {
+export default function Leaderboard({ scores, highlight = null, title = "Top scores" }) {
   let claimed = false;
 
   return (
     <div className="w-full max-w-[260px] border-t border-[#33254a] pt-2.5">
       <h3 className="text-[8.5px] tracking-[0.28em] uppercase text-[#9a8cb4] font-medium mb-2">
-        Sector 7 · top pilots
+        {title}
       </h3>
 
       {scores.length === 0 ? (
