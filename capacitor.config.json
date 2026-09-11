@@ -1,6 +1,6 @@
 {
-  "appId": "com.johnsheehy.mosquitoinvaders",
-  "appName": "Mosquito Invaders",
+  "appId": "com.johnsheehy.arcadegames",
+  "appName": "ArcadeGames",
   "webDir": "dist",
   "backgroundColor": "#060409",
   "ios": {
