@@ -60,89 +60,170 @@ function drawPellets(ctx, g) {
   }
 }
 
+/**
+ * The bunny: just a head, in profile — round face, tall ears with pink inners,
+ * one big eye, a pink nose and a blush. A whole body at this size turned into
+ * an indistinct blob; a face reads instantly.
+ */
 function drawBunny(ctx, g) {
   const b = g.bunny;
-  const kick = Math.sin(b.mouth) * 2; // paddling
+  const bob = Math.sin(b.mouth) * 1.2;
   const x = Math.round(b.x);
-  const y = Math.round(b.y);
-  const left = b.dir === "left";
-  const f = left ? -1 : 1; // facing multiplier
+  const y = Math.round(b.y + bob);
+  const d = b.dir === "left" ? -1 : 1;
 
-  // Ears, laid back along the water like a swimming rabbit's.
-  ctx.fillStyle = "#efe6dc";
-  ctx.fillRect(x - f * 2, y - 10 - kick * 0.5, 3, 7);
-  ctx.fillRect(x - f * 6, y - 9 + kick * 0.5, 3, 7);
-  ctx.fillStyle = "#f9b4c8";
-  ctx.fillRect(x - f * 2 + 1, y - 9 - kick * 0.5, 1, 5);
-  ctx.fillRect(x - f * 6 + 1, y - 8 + kick * 0.5, 1, 5);
+  const FUR = "#f7f3ec";
+  const INNER = "#f4a0b5";
 
-  ctx.fillStyle = "#f5f0e6";
-  ctx.fillRect(x - 8, y - 5, 16, 11); // body
-  ctx.fillRect(x + f * 6, y - 4, 4, 8); // head, out front
-  ctx.fillRect(x - f * 9, y - 3, 3, 6); // haunch
+  // Ears, swept slightly back, each a rounded blade.
+  for (const [lean, len] of [
+    [0.6, 13],
+    [-0.9, 12],
+  ]) {
+    const ex = x - d * (1 + lean * 2);
+    ctx.fillStyle = FUR;
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      const w = Math.round(3.4 - t * 1.2);
+      ctx.fillRect(Math.round(ex - d * lean * i * 0.55 - w / 2), y - 7 - i, w, 1);
+    }
+    ctx.fillStyle = INNER;
+    for (let i = 2; i < len - 3; i++) {
+      const t = i / len;
+      const w = Math.max(1, Math.round(1.8 - t));
+      ctx.fillRect(Math.round(ex - d * lean * i * 0.55 - w / 2), y - 8 - i, w, 1);
+    }
+  }
 
-  ctx.fillStyle = "#fffdf8"; // belly highlight
-  ctx.fillRect(x - 6, y + 2, 12, 3);
+  // Face.
+  ctx.fillStyle = FUR;
+  pixelDisc(ctx, x, y, 9);
+  pixelDisc(ctx, x + d * 4, y + 3, 6); // muzzle, pushed forward
 
-  ctx.fillStyle = "#2a1b2e"; // eye
-  ctx.fillRect(x + f * 6, y - 3, 2, 2);
-  ctx.fillStyle = "#f9b4c8"; // nose
-  ctx.fillRect(x + f * 9, y, 2, 2);
+  // Eye: big and dark, the way the reference does it.
+  ctx.fillStyle = "#20161f";
+  pixelDisc(ctx, x + d * 1, y - 1, 3.4);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(Math.round(x + d * 2), y - 3, 2, 2); // catchlight
 
-  ctx.fillStyle = "#fffdf8"; // scut
-  ctx.fillRect(x - f * 11, y - 2, 4, 4);
+  ctx.fillStyle = "rgba(244,160,181,.55)"; // blush
+  pixelDisc(ctx, x - d * 4, y + 3, 2.4);
 
-  ctx.fillStyle = "rgba(159,232,201,.5)"; // paddling feet
-  ctx.fillRect(x - 5, y + 6, 4, 3 + kick);
-  ctx.fillRect(x + 2, y + 6, 4, 3 - kick);
+  ctx.fillStyle = "#e8536f"; // nose
+  ctx.fillRect(Math.round(x + d * 8), y + 1, 3, 2);
+  ctx.fillStyle = "rgba(32,22,31,.5)"; // mouth
+  ctx.fillRect(Math.round(x + d * 7), y + 4, 3, 1);
+
+  // Whiskers.
+  ctx.fillStyle = "rgba(32,22,31,.28)";
+  ctx.fillRect(Math.round(x + d * 9), y - 1, 4, 1);
+  ctx.fillRect(Math.round(x + d * 9), y + 6, 4, 1);
 }
 
+/** A filled circle drawn as integer spans, so it stays pixel art. */
+function pixelDisc(ctx, cx, cy, r) {
+  for (let dy = -r; dy <= r; dy++) {
+    const dx = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
+    ctx.fillRect(Math.round(cx - dx), Math.round(cy + dy), dx * 2 + 1, 1);
+  }
+}
+
+/**
+ * The piranha: a deep disc of a body with a wedge bitten out of the front for
+ * the jaw, big triangular teeth top and bottom, one large eye set high, spiky
+ * dorsal and a lobed tail — the cartoon-piranha shape language.
+ */
 function drawFish(ctx, g, f) {
   const x = Math.round(f.x);
   const y = Math.round(f.y);
   const frightened = g.frightened > 0 && f.state === "hunting";
-  // Flash white as the carrot runs out — the last warning before they turn.
   const flashing = frightened && g.frightened < 2 && Math.floor(g.frightened * 6) % 2 === 0;
-  const body = f.state === "eaten" ? null : flashing ? "#efe6ff" : frightened ? "#3b6ea8" : f.colour;
-  const left = f.dir === "left";
-  const d = left ? -1 : 1;
-  const chomp = Math.sin(g.t * 12 + x * 0.3) > 0;
+  const eaten = f.state === "eaten";
+  const body = flashing ? "#efe6ff" : frightened ? "#3b6ea8" : f.colour;
+  const d = f.dir === "left" ? -1 : 1;
 
-  if (body) {
+  // Gape: chomping open and shut. A frightened fish keeps its mouth shut.
+  const gape = frightened ? 2 : 5 + Math.round(Math.sin(g.t * 11 + x * 0.2) * 3);
+  const R = 10;
+
+  if (!eaten) {
+    // Tail: two lobes behind the body.
     ctx.fillStyle = body;
-    // Deep, blunt-headed body — a piranha is tall for its length.
-    ctx.fillRect(x - 7, y - 6, 14, 13);
-    ctx.fillRect(x + d * 7, y - 4, 3, 9); // snout
-    ctx.fillRect(x - d * 8, y - 4, 2, 9); // peduncle
+    ctx.beginPath();
+    ctx.moveTo(x - d * 8, y);
+    ctx.lineTo(x - d * 15, y - 8);
+    ctx.lineTo(x - d * 13, y);
+    ctx.lineTo(x - d * 15, y + 8);
+    ctx.closePath();
+    ctx.fill();
 
-    ctx.fillStyle = "rgba(255,255,255,.18)"; // flank sheen
-    ctx.fillRect(x - 5, y - 4, 10, 3);
-    ctx.fillStyle = "rgba(11,9,16,.3)"; // dorsal
-    ctx.fillRect(x - 4, y - 7, 8, 2);
+    // Dorsal spikes along the top.
+    for (let i = 0; i < 3; i++) {
+      const sx = x - d * (2 + i * 4);
+      ctx.beginPath();
+      ctx.moveTo(sx, y - R + 3);
+      ctx.lineTo(sx - d * 2, y - R - 1 + i);
+      ctx.lineTo(sx - d * 4, y - R + 4);
+      ctx.closePath();
+      ctx.fill();
+    }
 
-    ctx.fillStyle = body; // tail fin
-    ctx.fillRect(x - d * 11, y - 7, 3, 5);
-    ctx.fillRect(x - d * 11, y + 2, 3, 5);
-    ctx.fillRect(x - d * 10, y - 3, 2, 7);
+    ctx.fillStyle = body;
+    pixelDisc(ctx, x, y, R);
 
-    ctx.fillStyle = "rgba(11,9,16,.25)"; // pectoral fin
-    ctx.fillRect(x - d * 1, y + 4, 5, 3);
+    // Belly, lighter underneath.
+    ctx.fillStyle = "rgba(255,255,255,.14)";
+    pixelDisc(ctx, x - d * 2, y + 4, 5);
 
-    // The jaw: underslung, and the teeth are the whole point.
-    const jaw = x + d * 5;
+    // Pectoral fin.
+    ctx.fillStyle = "rgba(11,9,16,.28)";
+    ctx.beginPath();
+    ctx.moveTo(x + d * 1, y + 5);
+    ctx.lineTo(x - d * 4, y + 10);
+    ctx.lineTo(x + d * 3, y + 9);
+    ctx.closePath();
+    ctx.fill();
+
+    // The jaw: a wedge taken out of the front of the disc.
+    const jawTip = x + d * (R + 1);
     ctx.fillStyle = "#2a0b10";
-    ctx.fillRect(left ? jaw - 6 : jaw, y + (chomp ? 1 : 2), 6, chomp ? 4 : 3);
+    ctx.beginPath();
+    ctx.moveTo(x + d * 3, y + 2); // hinge, clear of the eye
+    ctx.lineTo(jawTip, y - gape - 2);
+    ctx.lineTo(jawTip, y + gape + 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Teeth: big triangles along both jaws, pointing into the gape.
     ctx.fillStyle = "#ffffff";
     for (let i = 0; i < 3; i++) {
-      ctx.fillRect(left ? jaw - 5 + i * 2 : jaw + 1 + i * 2, y + (chomp ? 1 : 2), 1, 2);
+      const t = 5 + i * 2.4;
+      const lerp = (t - 3) / (R - 2);
+      const topY = y + 2 - (gape + 4) * lerp;
+      const botY = y + 2 + (gape + 6) * lerp;
+      const tx = x + d * t;
+      ctx.beginPath(); // upper
+      ctx.moveTo(tx, topY);
+      ctx.lineTo(tx + d * 2.2, topY);
+      ctx.lineTo(tx + d * 1.1, topY + 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath(); // lower
+      ctx.moveTo(tx, botY);
+      ctx.lineTo(tx + d * 2.2, botY);
+      ctx.lineTo(tx + d * 1.1, botY - 3);
+      ctx.closePath();
+      ctx.fill();
     }
   }
 
-  // Eyes stay visible even once eaten — that's all that swims home.
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(x + d * 2, y - 4, 4, 4);
+  // Eye: large, set high and forward. Survives being eaten — it's what swims home.
+  ctx.fillStyle = eaten ? "rgba(255,255,255,.9)" : "#ffe9b8";
+  pixelDisc(ctx, x + d * 2, y - 5, 3);
   ctx.fillStyle = frightened && !flashing ? "#9fe8c9" : "#0b0910";
-  ctx.fillRect(x + d * 3, y - 3, 2, 2);
+  pixelDisc(ctx, x + d * 3, y - 5, 1.6);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(Math.round(x + d * 3), y - 7, 1, 1); // catchlight
 }
 
 function drawHudBanner(ctx, g) {
