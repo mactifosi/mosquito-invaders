@@ -6,6 +6,7 @@ import Hud from "@/components/invaders/Hud";
 import Overlay from "@/components/invaders/Overlay";
 import { loadScores, saveScore, getHighScore } from "@/components/invaders/scores";
 import { sfx } from "@/components/invaders/sounds";
+import { haptics, initHaptics } from "@/components/invaders/haptics";
 
 /* ───────────────────────── constants ───────────────────────── */
 
@@ -470,6 +471,7 @@ export function update(dt, g, input, cb) {
         breakCombo(g, cb);
         cb.onLives(g.lives);
         sfx.loseLife();
+        haptics.loseCraft();
         if (g.lives <= 0) {
           g.ended = true;
           cb.onGameOver("swarmed");
@@ -653,6 +655,7 @@ export function update(dt, g, input, cb) {
         g.bullets.splice(i, 1);
         g.hitStop = HIT_STOP;
         sfx.hit(mult);
+        haptics.hit();
         break;
       }
     }
@@ -699,6 +702,7 @@ export function update(dt, g, input, cb) {
         cb.onLives(g.lives);
         spawnExplosion(g, p.x + PLAYER_W / 2, p.y, "#ffb02e");
         sfx.loseLife();
+        haptics.loseCraft();
         if (g.lives <= 0) {
           g.ended = true;
           cb.onGameOver("shot");
@@ -1073,6 +1077,7 @@ export default function Game() {
 
   const startGame = useCallback(() => {
     sfx.unlock();
+    initHaptics();
     game.current = makeLevel(1, 0, 3);
     setScore(0);
     setLives(3);
@@ -1085,6 +1090,7 @@ export default function Game() {
 
   const nextLevel = useCallback(() => {
     sfx.unlock();
+    initHaptics();
     const prev = game.current;
     const next = makeLevel(prev.level + 1, prev.score, prev.lives);
     next.player.shield = prev.player.shield; // an unbroken shield carries over

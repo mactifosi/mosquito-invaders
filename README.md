@@ -146,6 +146,12 @@ it. Capacitor hardcodes the path `ios/App/App.xcodeproj` with no config override
 without the symlink `npx cap sync` fails to write `Package.swift` and plugins never reach
 the native project. Delete the symlink and the next plugin you add will silently not build.
 
+Haptics (a light tap per kill, a heavier one when a craft is lost) come from
+`@capacitor/haptics`, loaded by dynamic import so the web build doesn't carry native plugin
+code and the Node test harness doesn't have to stub it. Every call fails soft — no
+vibration support, haptics switched off, a rejected promise mid-frame — none of it
+interrupts the loop.
+
 The native build sets `CAP_BUILD=1`, which disables the service worker — the app bundle
 already carries its assets, and a worker can't register over `capacitor://`.
 
@@ -181,4 +187,3 @@ copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 - Backend-backed global leaderboard to supplement the local one.
 - Enemy variety — a boss swarm every N levels.
 - Settings: mute toggle, difficulty select.
-- Haptics on hit and lost craft.
