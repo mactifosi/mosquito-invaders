@@ -2,6 +2,7 @@ import React from "react";
 import { Play, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Leaderboard from "@/components/invaders/Leaderboard";
+import InitialsEntry from "@/components/invaders/InitialsEntry";
 
 const CTA =
   "font-['Silkscreen',monospace] text-[13px] bg-[#ffb02e] text-[#20130a] " +
@@ -22,9 +23,24 @@ export default function Overlay({
   species = [],
   bossCleared = false,
   bossNext = false,
+  needsInitials = false,
+  defaultInitials = "AAA",
+  onSubmitInitials,
+  challenge = null,
   onStart,
 }) {
   if (status === "playing") return null;
+
+  if (needsInitials && status === "gameover") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-4 text-center bg-[#08050e]/[0.9] backdrop-blur-[2px]">
+        <h2 className="font-['Silkscreen',monospace] text-[clamp(15px,4.8vw,20px)] m-0 text-[#ffb02e]">
+          NEW HIGH SCORE
+        </h2>
+        <InitialsEntry score={score} defaultInitials={defaultInitials} onSubmit={onSubmitInitials} />
+      </div>
+    );
+  }
 
   const isReady = status === "ready";
   const isLevelUp = status === "levelup";
@@ -74,7 +90,13 @@ export default function Overlay({
       </h2>
 
       <p className="text-[11px] leading-relaxed text-[#9a8cb4] max-w-[30ch]">
-        {isReady && (
+        {isReady && challenge && (
+          <>
+            <b className="text-[#6fe3c0] font-semibold">Daily · {challenge.label}</b> — {challenge.note}.
+            One run, seeded from {challenge.dateKey}.
+          </>
+        )}
+        {isReady && !challenge && (
           <>
             A swarm is descending on Sector 7. Fly the citronella craft, hold the line, and
             don&apos;t let them land. <b className="text-[#efe6ff] font-semibold">Best: {highScore}</b>

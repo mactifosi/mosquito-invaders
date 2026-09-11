@@ -8,6 +8,7 @@
  */
 
 let AC = null;
+let muted = false;
 
 function ac() {
   if (!AC) {
@@ -21,6 +22,7 @@ function ac() {
 
 /** A single pitched blip, optionally gliding from f0 to f1. */
 function tone(type, f0, f1, dur, vol = 0.16, delay = 0) {
+  if (muted) return;
   const c = ac();
   if (!c) return;
   const t = c.currentTime + delay;
@@ -42,6 +44,7 @@ function tone(type, f0, f1, dur, vol = 0.16, delay = 0) {
 
 /** Decaying white noise — impacts and explosions. */
 function noise(dur, vol = 0.2, delay = 0) {
+  if (muted) return;
   const c = ac();
   if (!c) return;
   const n = Math.floor(c.sampleRate * dur);
@@ -58,8 +61,14 @@ function noise(dur, vol = 0.2, delay = 0) {
 }
 
 export const sfx = {
+  /** Set from the arcade's Sound setting. The native app plays through the
+   *  silent switch, so this is the only way to keep it quiet. */
+  setMuted(value) {
+    muted = Boolean(value);
+  },
   /** Must be called from a user gesture before any other sound. */
   unlock() {
+    if (muted) return;
     ac();
   },
   laser() {
@@ -109,6 +118,11 @@ export const sfx = {
   bossDown() {
     [196, 262, 330, 392, 523].forEach((f, i) => tone("triangle", f, f, 0.2, 0.15, i * 0.12));
     noise(0.6, 0.2);
+  },
+  /** The stray arriving: a lazy, taunting drift across the top. */
+  stray() {
+    tone("sine", 520, 700, 0.5, 0.07);
+    tone("sine", 660, 880, 0.5, 0.05, 0.08);
   },
   pause() {
     tone("square", 420, 300, 0.12, 0.1);

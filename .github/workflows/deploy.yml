@@ -27,6 +27,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The arcade is a client-side SPA with real routes now. Pages has no
+      # rewrite rule, so a refresh on /mosquito-invaders would 404 without this.
+      - run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

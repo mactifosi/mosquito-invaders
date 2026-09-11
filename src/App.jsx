@@ -1,17 +1,24 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "@/pages/Home";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Layout from "@/pages/Layout";
+import Arcade from "@/pages/Arcade";
+import MosquitoInvaders from "@/pages/MosquitoInvaders";
 
 /**
- * Only one route: the public game. `basename` follows Vite's base, so the app
- * works both at localhost:5173/ and under the /mosquito-invaders/ Pages path.
+ * The arcade shell. "/" is the floor; each game gets its own route so a cabinet
+ * can be linked to directly. `basename` follows Vite's base, so this works both
+ * at localhost and under the /mosquito-invaders/ Pages path.
  */
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Arcade />} />
+          <Route path="/mosquito-invaders" element={<MosquitoInvaders />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
     </BrowserRouter>
   );
 }

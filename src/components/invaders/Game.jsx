@@ -4,7 +4,9 @@ import { useTouchControls } from "@/components/invaders/useTouchControls";
 import TouchControls from "@/components/invaders/TouchControls";
 import Hud from "@/components/invaders/Hud";
 import Overlay from "@/components/invaders/Overlay";
-import { loadScores, saveScore, getHighScore } from "@/components/invaders/scores";
+import { loadScores, saveScore, getHighScore, qualifies } from "@/components/invaders/scores";
+import { loadSettings, difficultyOf, saveSettings } from "@/lib/settings";
+import { dailyChallenge, mulberry32, recordDaily } from "@/lib/daily";
 import { sfx } from "@/components/invaders/sounds";
 import { haptics, initHaptics } from "@/components/invaders/haptics";
 
@@ -94,8 +96,36 @@ const BOSS_BROOD_MAX = 3;
 const BOSS_HIT_POINTS = 5; // chip damage pays a little
 const BOSS_KILL_POINTS = 500;
 
-/** Every 4th wave is the queen. */
-export const isBossLevel = (level) => level % BOSS_EVERY === 0;
+/** Blood-fed: visibly engorged, takes two hits, worth triple. */
+const FED_CHANCE = 0.17; // of mosquitoes in the back two rows
+const FED_BONUS = 3;
+
+/* The bonus target: one that got away, crossing the top for big points. */
+const STRAY_INTERVAL = 14; // seconds between attempts
+const STRAY_CHANCE = 0.55; // ...and it doesn't always show
+const STRAY_SPEED = 70;
+const STRAY_W = 20;
+const STRAY_H = 14;
+const STRAY_Y = 30;
+const STRAY_POINTS = 150;
+
+/**
+ * Every BOSS_EVERY waves is the queen; the daily challenge can change the
+ * cadence. The cadence is validated rather than defaulted, because this gets
+ * used as a predicate (`levels.every(isBossLevel)`) where the second argument
+ * arrives as an array index — and `level % 0` is NaN, silently false.
+ */
+export const isBossLevel = (level, opts) => {
+  // Options object rather than a positional cadence: this gets used as a bare
+  // predicate (`levels.some(isBossLevel)`), where the second argument arrives as
+  // an array index. A number there would silently redefine the cadence — index 1
+  // would make every wave a boss wave. An object can't be confused for one.
+  const every =
+    opts && typeof opts === "object" && Number.isInteger(opts.every) && opts.every > 0
+      ? opts.every
+      : BOSS_EVERY;
+  return level % every === 0;
+};
 
 /* Combo: consecutive kills without a miss. Resets on a shot that leaves the
    top of the screen, on taking a hit, or after COMBO_WINDOW without a kill. */
@@ -164,7 +194,7 @@ export function makeBunkers() {
 }
 
 /** Chew a crater at a point. Returns true if anything was actually there. */
-function erodeBunker(b, px, py, radius = 1) {
+function erodeBunker(b, px, py, radius = 1, rand = null) {
   const c0 = Math.floor((px - b.x) / BUNKER_CELL);
   const r0 = Math.floor((py - b.y) / BUNKER_CELL);
   if (c0 < 0 || r0 < 0 || c0 >= BUNKER_COLS || r0 >= BUNKER_ROWS) return false;
@@ -174,7 +204,7 @@ function erodeBunker(b, px, py, radius = 1) {
     for (let c = c0 - radius; c <= c0 + radius; c++) {
       if (r < 0 || c < 0 || r >= BUNKER_ROWS || c >= BUNKER_COLS) continue;
       // Ragged edge: corners of the blast survive sometimes.
-      if (Math.abs(r - r0) + Math.abs(c - c0) > radius && Math.random() < 0.5) continue;
+      if (Math.abs(r - r0) + Math.abs(c - c0) > radius && (rand?.() ?? Math.random()) < 0.5) continue;
       b.cells[r * BUNKER_COLS + c] = 0;
     }
   }
@@ -192,7 +222,7 @@ function bulletHitsBunker(g, fromX, fromY, toX, toY) {
     const py = fromY + ((toY - fromY) * i) / steps;
     for (const b of g.bunkers) {
       if (px < b.x || px > b.x + BUNKER_W || py < b.y || py > b.y + BUNKER_H) continue;
-      if (erodeBunker(b, px, py)) return true;
+      if (erodeBunker(b, px, py, 1, g.rng)) return true;
     }
   }
   return false;
@@ -217,8 +247,20 @@ export function alienPos(g, a) {
  * Builds the mutable state for one wave. Everything per-frame lives here, in a
  * ref — never in React state, which would thrash at 60fps.
  */
-export function makeLevel(level, score, lives) {
-  const boss = isBossLevel(level)
+export function makeLevel(level, score, lives, opts = {}) {
+  const {
+    speed = 1,        // difficulty: formation speed
+    fireRate = 1,     // difficulty: multiplies enemy fire interval
+    diveRate = 1,     // difficulty: multiplies the dive interval
+    bunkers = true,   // daily: cover can be taken away
+    diveFrom = DIVE_FROM_LEVEL,
+    bossEvery = BOSS_EVERY,
+    startRapid = false,
+    fedChance = FED_CHANCE,
+    rng = Math.random,
+  } = opts;
+
+  const boss = isBossLevel(level, { every: bossEvery })
     ? {
         x: W / 2 - BOSS_W / 2,
         y: 44,
@@ -241,15 +283,21 @@ export function makeLevel(level, score, lives) {
         alive: true,
         flash: 0,
         dive: null,
+        // Only the back two rows carry a blood meal, so the tough ones sit
+        // behind the cheap ones and have to be dug out.
+        fed: r < 2 && rng() < fedChance,
+        hp: 1,
       });
     }
   }
 
+  for (const a of aliens) a.hp = a.fed ? 2 : 1;
+
   const motes = Array.from({ length: 34 }, () => ({
-    x: Math.random() * W,
-    y: Math.random() * H,
-    v: 6 + Math.random() * 22,
-    s: Math.random() < 0.25 ? 2 : 1,
+    x: rng() * W,
+    y: rng() * H,
+    v: 6 + rng() * 22,
+    s: rng() < 0.25 ? 2 : 1,
   }));
 
   return {
@@ -261,7 +309,7 @@ export function makeLevel(level, score, lives) {
       y: PLAYER_Y,
       cooldown: 0,
       shield: false,
-      rapidUntil: 0,
+      rapidUntil: startRapid ? Infinity : 0,
       tripleUntil: 0,
       hitFlash: 0,
       muzzle: 0,
@@ -269,7 +317,14 @@ export function makeLevel(level, score, lives) {
     },
     aliens,
     boss,
-    bunkers: makeBunkers(),
+    bunkers: bunkers ? makeBunkers() : [],
+    stray: null,
+    strayTimer: STRAY_INTERVAL,
+    diveFrom,
+    bossEvery,
+    fireRate,
+    diveRate,
+    rng,
     diveTimer: DIVE_INTERVAL,
     formationX: SIDE_MARGIN,
     formationY: ALIEN_TOP,
@@ -284,7 +339,7 @@ export function makeLevel(level, score, lives) {
     intro: INTRO_TIME,
     enemyFireTimer: ALIEN_FIRE_INTERVAL,
     humTimer: 0,
-    baseSpeed: 24 + (level - 1) * 8,
+    baseSpeed: (24 + (level - 1) * 8) * speed,
     // Feel state. Streak carries across waves; hit-stop and shake never do.
     streak: 0,
     comboTimer: 0,
@@ -347,9 +402,10 @@ function breakCombo(g, cb) {
 const aliveCount = (g) => g.aliens.reduce((n, a) => n + (a.alive ? 1 : 0), 0);
 
 function spawnExplosion(g, x, y, color) {
+  const rng = g.rng || Math.random;
   for (let i = 0; i < 10; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const sp = 30 + Math.random() * 90;
+    const a = rng() * Math.PI * 2;
+    const sp = 30 + rng() * 90;
     g.particles.push({
       x,
       y,
@@ -364,7 +420,7 @@ function spawnExplosion(g, x, y, color) {
 
 /** Drop weighting: rapid 40%, triple 32%, shield 18%, life 10%. */
 function spawnPowerup(g, x, y) {
-  const r = Math.random();
+  const r = (g.rng || Math.random)();
   const type = r < 0.4 ? "rapid" : r < 0.72 ? "triple" : r < 0.9 ? "shield" : "life";
   g.powerups.push({ x: x - POWERUP_SIZE / 2, y, type });
 }
@@ -480,7 +536,7 @@ export function update(dt, g, input, cb) {
   for (const a of g.aliens) if (a.flash > 0) a.flash -= dt;
 
   /* ---- divers: break formation and swoop at the craft ---- */
-  if (g.level >= DIVE_FROM_LEVEL && !intro) {
+  if (g.level >= g.diveFrom && !intro) {
     g.diveTimer -= dt;
     const active = g.aliens.filter((a) => a.alive && a.dive).length;
     if (g.diveTimer <= 0 && active < DIVE_MAX_ACTIVE) {
@@ -489,12 +545,12 @@ export function update(dt, g, input, cb) {
       if (ready.length) {
         const front = ready.filter((a) => a.row >= ROWS - 2);
         const pool = front.length ? front : ready;
-        const a = pool[Math.floor(Math.random() * pool.length)];
+        const a = pool[Math.floor(g.rng() * pool.length)];
         const pos = alienPos(g, a);
         a.dive = { x: pos.x, y: pos.y, vx: 0, vy: 40, t: 0 };
         sfx.dive();
       }
-      g.diveTimer = Math.max(1.6, DIVE_INTERVAL - (g.level - DIVE_FROM_LEVEL) * 0.45);
+      g.diveTimer = Math.max(1.6, DIVE_INTERVAL - (g.level - g.diveFrom) * 0.45) * g.diveRate;
     }
   }
 
@@ -514,7 +570,7 @@ export function update(dt, g, input, cb) {
     for (const b of g.bunkers) {
       if (d.x + ALIEN_W < b.x || d.x > b.x + BUNKER_W) continue;
       if (d.y + ALIEN_H < b.y || d.y > b.y + BUNKER_H) continue;
-      erodeBunker(b, d.x + ALIEN_W / 2, d.y + ALIEN_H / 2, 2);
+      erodeBunker(b, d.x + ALIEN_W / 2, d.y + ALIEN_H / 2, 2, g.rng);
     }
 
     // Collision with the craft: same cost as a bite, and the diver is spent.
@@ -559,6 +615,25 @@ export function update(dt, g, input, cb) {
     }
   }
 
+  /* ---- the stray: one that got away, crossing the top for big points ---- */
+  if (!intro) {
+    if (g.stray) {
+      g.stray.x += g.stray.dir * STRAY_SPEED * dt;
+      if (g.stray.x < -STRAY_W - 4 || g.stray.x > W + 4) g.stray = null;
+    } else {
+      g.strayTimer -= dt;
+      if (g.strayTimer <= 0) {
+        if (g.rng() < STRAY_CHANCE) {
+          const dir = g.rng() < 0.5 ? 1 : -1;
+          g.stray = { x: dir > 0 ? -STRAY_W : W, y: STRAY_Y, dir, t: 0 };
+          sfx.stray();
+        }
+        g.strayTimer = STRAY_INTERVAL;
+      }
+    }
+  }
+  if (g.stray) g.stray.t += dt;
+
   /* ---- the queen ---- */
   if (g.boss) {
     const boss = g.boss;
@@ -581,7 +656,7 @@ export function update(dt, g, input, cb) {
       const cx = boss.x + BOSS_W / 2 - 1.5;
       const by = boss.y + BOSS_H;
       g.ebullets.push({ x: cx - 14, y: by }, { x: cx, y: by }, { x: cx + 14, y: by });
-      boss.fireTimer = BOSS_FIRE_INTERVAL * urgency * (0.8 + Math.random() * 0.4);
+      boss.fireTimer = BOSS_FIRE_INTERVAL * urgency * (0.8 + g.rng() * 0.4) * g.fireRate;
     }
 
     if (!intro) boss.broodTimer -= dt;
@@ -599,7 +674,7 @@ export function update(dt, g, input, cb) {
     for (const b of g.bunkers) {
       if (boss.x + BOSS_W < b.x || boss.x > b.x + BUNKER_W) continue;
       if (boss.y + BOSS_H < b.y || boss.y > b.y + BUNKER_H) continue;
-      erodeBunker(b, Math.max(b.x, Math.min(boss.x + BOSS_W / 2, b.x + BUNKER_W)), b.y + 2, 3);
+      erodeBunker(b, Math.max(b.x, Math.min(boss.x + BOSS_W / 2, b.x + BUNKER_W)), b.y + 2, 3, g.rng);
     }
 
     if (boss.y + BOSS_H >= p.y) {
@@ -656,6 +731,26 @@ export function update(dt, g, input, cb) {
     }
     if (consumed) continue;
 
+    if (g.stray) {
+      const st = g.stray;
+      if (b.x < st.x + STRAY_W && b.x + 3 > st.x && b.y < st.y + STRAY_H && b.y + 7 > st.y) {
+        const mult = comboMultiplier(g.streak);
+        const points = STRAY_POINTS * mult;
+        g.score += points;
+        cb.onScore(g.score);
+        g.shotsHit += 1;
+        spawnPopup(g, st.x + STRAY_W / 2, st.y, `+${points} STRAY`, "#f472b6");
+        spawnExplosion(g, st.x + STRAY_W / 2, st.y + STRAY_H / 2, "#f472b6");
+        g.stray = null;
+        g.bullets.splice(i, 1);
+        g.hitStop = HIT_STOP;
+        g.shake = Math.max(g.shake, 2);
+        sfx.powerup();
+        haptics.hit();
+        break;
+      }
+    }
+
     if (g.boss) {
       const boss = g.boss;
       if (
@@ -699,17 +794,29 @@ export function update(dt, g, input, cb) {
       if (!a.alive) continue;
       const { x: ax, y: ay } = alienPos(g, a);
       if (b.x < ax + ALIEN_W && b.x + 3 > ax && b.y < ay + ALIEN_H && b.y + 7 > ay) {
-        a.alive = false;
-        a.flash = 0.12;
         g.shotsHit += 1;
+        a.flash = 0.12;
+        a.hp -= 1;
 
+        // A blood-fed mosquito soaks the first hit — the round goes in, it
+        // doesn't go down, and the streak is untouched.
+        if (a.hp > 0) {
+          spawnExplosion(g, b.x, b.y, "#8b1d2c");
+          g.bullets.splice(i, 1);
+          g.hitStop = HIT_STOP * 0.4;
+          sfx.thud();
+          break;
+        }
+
+        a.alive = false;
         g.streak += 1;
         g.bestStreak = Math.max(g.bestStreak, g.streak);
         g.comboTimer = COMBO_WINDOW;
         const mult = comboMultiplier(g.streak);
         const diving = Boolean(a.dive);
         a.dive = null;
-        const points = SPECIES[a.row].pts * mult * (diving ? DIVE_BONUS : 1);
+        const points =
+          SPECIES[a.row].pts * mult * (diving ? DIVE_BONUS : 1) * (a.fed ? FED_BONUS : 1);
         g.score += points;
         cb.onScore(g.score);
         cb.onSwarm(alive - 1);
@@ -719,11 +826,11 @@ export function update(dt, g, input, cb) {
           g,
           ax + ALIEN_W / 2,
           ay,
-          diving ? `+${points} DIVE` : mult > 1 ? `+${points} ×${mult}` : `+${points}`,
-          diving ? "#6fe3c0" : mult > 1 ? "#ffb02e" : "#efe6ff"
+          diving ? `+${points} DIVE` : a.fed ? `+${points} FED` : mult > 1 ? `+${points} ×${mult}` : `+${points}`,
+          diving ? "#6fe3c0" : a.fed ? "#f472b6" : mult > 1 ? "#ffb02e" : "#efe6ff"
         );
         spawnExplosion(g, ax + ALIEN_W / 2, ay + ALIEN_H / 2, SPECIES[a.row].body);
-        if (Math.random() < POWERUP_CHANCE) spawnPowerup(g, ax + ALIEN_W / 2, ay);
+        if (g.rng() < POWERUP_CHANCE) spawnPowerup(g, ax + ALIEN_W / 2, ay);
         g.bullets.splice(i, 1);
         g.hitStop = HIT_STOP;
         sfx.hit(mult);
@@ -738,12 +845,12 @@ export function update(dt, g, input, cb) {
   if (g.enemyFireTimer <= 0) {
     const shooters = g.aliens.filter((a) => a.alive && !a.brood);
     if (shooters.length) {
-      const a = shooters[Math.floor(Math.random() * shooters.length)];
+      const a = shooters[Math.floor(g.rng() * shooters.length)];
       const pos = alienPos(g, a);
       g.ebullets.push({ x: pos.x + ALIEN_W / 2 - 1.5, y: pos.y + ALIEN_H });
     }
-    const base = Math.max(0.32, ALIEN_FIRE_INTERVAL - (g.level - 1) * 0.09);
-    g.enemyFireTimer = base * (0.7 + Math.random() * 0.6);
+    const base = Math.max(0.32, ALIEN_FIRE_INTERVAL - (g.level - 1) * 0.09) * g.fireRate;
+    g.enemyFireTimer = base * (0.7 + g.rng() * 0.6);
   }
 
   for (let i = g.ebullets.length - 1; i >= 0; i--) {
@@ -829,7 +936,7 @@ export function update(dt, g, input, cb) {
     if (ay + ALIEN_H < BUNKER_Y || ay > BUNKER_Y + BUNKER_H) continue;
     for (const b of g.bunkers) {
       if (ax + ALIEN_W < b.x || ax > b.x + BUNKER_W) continue;
-      erodeBunker(b, ax + ALIEN_W / 2, ay + ALIEN_H / 2, 2);
+      erodeBunker(b, ax + ALIEN_W / 2, ay + ALIEN_H / 2, 2, g.rng);
     }
   }
 
@@ -840,7 +947,7 @@ export function update(dt, g, input, cb) {
       break;
     }
   }
-  if (alive === 0 && !g.boss) {
+  if (alive === 0 && !g.boss && !g.stray) {
     g.ended = true;
     cb.onLevelClear();
   }
@@ -848,7 +955,28 @@ export function update(dt, g, input, cb) {
 
 /* ───────────────────────── draw ───────────────────────── */
 
-function drawMosquito(ctx, x, y, color, flash, t, row, diving = false) {
+/**
+ * Row markings, so species are distinguishable without relying on hue. Red and
+ * mint are the pair most likely to collapse under deuteranopia, and row colour
+ * was previously the only thing telling the species apart.
+ */
+function drawRowMark(ctx, x, y, row, ink) {
+  ctx.fillStyle = ink;
+  if (row === 0) {
+    ctx.fillRect(x + 9, y + 4, 5, 1); // bar
+  } else if (row === 1) {
+    ctx.fillRect(x + 10, y + 3, 2, 2); // single dot
+  } else if (row === 2) {
+    ctx.fillRect(x + 8, y + 3, 2, 2); // two dots
+    ctx.fillRect(x + 13, y + 3, 2, 2);
+  } else {
+    ctx.fillRect(x + 9, y + 3, 2, 2); // chevron
+    ctx.fillRect(x + 11, y + 5, 2, 2);
+    ctx.fillRect(x + 13, y + 3, 2, 2);
+  }
+}
+
+function drawMosquito(ctx, x, y, color, flash, t, row, diving = false, fed = false) {
   const wing = Math.sin(t * (diving ? 46 : 26) + row * 1.7) * (diving ? 2.4 : 1.6);
   if (diving) {
     // A faint smear behind it, so a swooping mosquito is never a surprise.
@@ -863,6 +991,13 @@ function drawMosquito(ctx, x, y, color, flash, t, row, diving = false) {
   ctx.fillStyle = c;
   ctx.fillRect(x + 7, y + 6, 9, 6); // thorax
   ctx.fillRect(x + 15, y + 7, 6, 4); // abdomen
+  if (fed) {
+    // Engorged: the abdomen swells and darkens with a blood meal.
+    ctx.fillStyle = flash ? "#ffffff" : "#8b1d2c";
+    ctx.fillRect(x + 15, y + 5, 7, 8);
+    ctx.fillStyle = "rgba(255,255,255,.25)";
+    ctx.fillRect(x + 17, y + 6, 2, 2);
+  }
   ctx.fillStyle = "rgba(11,9,16,.55)"; // stripes
   ctx.fillRect(x + 16, y + 7, 1, 4);
   ctx.fillRect(x + 18, y + 7, 1, 4);
@@ -1105,8 +1240,10 @@ export function draw(canvas, g) {
   for (const a of g.aliens) {
     if (!a.alive) continue;
     const { x: ax, y: ay } = alienPos(g, a);
-    drawMosquito(ctx, ax, ay, SPECIES[a.row].body, a.flash > 0, g.t, a.row, Boolean(a.dive));
+    drawMosquito(ctx, ax, ay, SPECIES[a.row].body, a.flash > 0, g.t, a.row, Boolean(a.dive), a.fed);
   }
+
+  if (g.stray) drawStray(ctx, g.stray);
 
   ctx.fillStyle = "#ffe9b8";
   for (const b of g.bullets) ctx.fillRect(Math.round(b.x), Math.round(b.y), 3, 7);
@@ -1140,9 +1277,26 @@ export function draw(canvas, g) {
 
 /* ───────────────────────── component ───────────────────────── */
 
-export default function Game() {
+export default function Game({ daily = false }) {
+  // Read once per mount: changing difficulty mid-run would be incoherent.
+  const settings = useRef(loadSettings()).current;
+  const challenge = useRef(daily ? dailyChallenge() : null).current;
+
+  /** Options for makeLevel: difficulty always, daily modifiers when relevant. */
+  const levelOpts = useCallback(
+    (level) => {
+      const d = difficultyOf(settings);
+      const base = { speed: d.speed, fireRate: d.fireRate, diveRate: d.dives };
+      if (!challenge) return base;
+      // A daily run is the same for everyone: same seed, same modifier.
+      return { ...base, ...challenge.mods, rng: mulberry32(challenge.seed + level) };
+    },
+    [settings, challenge]
+  );
+
   const canvasRef = useRef(null);
-  const game = useRef(makeLevel(1, 0, 3));
+  const game = useRef(null);
+  if (!game.current) game.current = makeLevel(1, 0, 3);
 
   const [status, setStatus] = useState("ready");
   const [score, setScore] = useState(0);
@@ -1152,11 +1306,16 @@ export default function Game() {
   const [combo, setCombo] = useState(1);
   const [summary, setSummary] = useState(null);
   const [deathReason, setDeathReason] = useState("shot");
+  const [needsInitials, setNeedsInitials] = useState(false);
   const [scores, setScores] = useState(() => loadScores());
   const [highScore, setHighScore] = useState(() => getHighScore());
 
   // Mirrors `status` so the frame closure can early-return without going stale.
   const statusRef = useRef(status);
+  const needsInitialsRef = useRef(false);
+  useEffect(() => {
+    needsInitialsRef.current = needsInitials;
+  }, [needsInitials]);
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
@@ -1182,11 +1341,14 @@ export default function Game() {
   }, []);
 
   const startGame = useCallback(() => {
+    sfx.setMuted(settings.muted);
     sfx.unlock();
     initHaptics();
-    game.current = makeLevel(1, 0, 3);
+    const opts = levelOpts(1);
+    const startLives = opts.lives ?? 3;
+    game.current = makeLevel(1, 0, startLives, opts);
     setScore(0);
-    setLives(3);
+    setLives(startLives);
     setLevel(1);
     setSwarm(game.current.aliens.length);
     setCombo(1);
@@ -1198,7 +1360,7 @@ export default function Game() {
     sfx.unlock();
     initHaptics();
     const prev = game.current;
-    const next = makeLevel(prev.level + 1, prev.score, prev.lives);
+    const next = makeLevel(prev.level + 1, prev.score, prev.lives, levelOpts(prev.level + 1));
     next.player.shield = prev.player.shield; // an unbroken shield carries over
     // Run stats span the whole run, not one wave.
     next.bestStreak = prev.bestStreak;
@@ -1219,7 +1381,20 @@ export default function Game() {
       sfx.resume();
       setStatus("playing");
     }
-  }, []);
+  }, [levelOpts]);
+
+  /** Called once the player has entered (or skipped) their initials. */
+  const commitScore = useCallback(
+    (initials) => {
+      const finalScore = game.current.score;
+      if (initials) saveSettings({ initials });
+      const next = saveScore(finalScore, initials || "···");
+      setScores(next);
+      setHighScore(next[0]?.score || 0);
+      setNeedsInitials(false);
+    },
+    []
+  );
 
   const onStart = useCallback(() => {
     if (statusRef.current === "paused") togglePause();
@@ -1242,6 +1417,7 @@ export default function Game() {
 
   const { input, press } = useTouchControls({
     onConfirm: () => {
+      if (needsInitialsRef.current) return; // the board is waiting on a name
       if (statusRef.current !== "playing") onStart();
     },
     onPause: togglePause,
@@ -1260,6 +1436,7 @@ export default function Game() {
     onGameOver: (reason) => {
       const g = game.current;
       const finalScore = g.score;
+      if (challenge) recordDaily(finalScore, g.level, challenge.dateKey);
       const fired = g.shotsFired || 0;
       setSummary({
         wave: g.level,
@@ -1269,9 +1446,7 @@ export default function Game() {
       setDeathReason(reason);
       setLives(0);
       setStatus("gameover");
-      const next = saveScore(finalScore);
-      setScores(next);
-      setHighScore(next[0] || 0);
+      setNeedsInitials(qualifies(finalScore));
       sfx.gameOver();
     },
   };
@@ -1403,8 +1578,12 @@ export default function Game() {
           score={score}
           level={level}
           summary={summary}
-          bossCleared={isBossLevel(level)}
-          bossNext={isBossLevel(level + 1)}
+          needsInitials={needsInitials}
+          defaultInitials={settings.initials}
+          onSubmitInitials={commitScore}
+          challenge={challenge}
+          bossCleared={isBossLevel(level, { every: game.current?.bossEvery })}
+          bossNext={isBossLevel(level + 1, { every: game.current?.bossEvery })}
           highScore={highScore}
           scores={scores}
           deathReason={deathReason}

@@ -20,18 +20,21 @@ export default function Leaderboard({ scores, highlight = null }) {
         <p className="text-[10.5px] text-[#9a8cb4]">No runs logged yet. Be the first.</p>
       ) : (
         <ol className="flex flex-col gap-[3px]">
-          {scores.map((s, i) => {
-            const isRun = !claimed && highlight != null && s === highlight;
+          {scores.map((entry, i) => {
+            const isRun = !claimed && highlight != null && entry.score === highlight;
             if (isRun) claimed = true;
             return (
               <li
-                key={`${s}-${i}`}
+                key={`${entry.score}-${i}`}
                 className={`flex justify-between gap-2.5 text-[11px] tabular-nums ${
                   isRun ? "text-[#6fe3c0]" : MEDAL[i] || "text-[#9a8cb4]"
                 }`}
               >
                 <span className="tracking-[0.1em]">{String(i + 1).padStart(2, "0")}</span>
-                <span>{s}</span>
+                <span className="tracking-[0.18em] font-['Silkscreen',monospace] text-[10px]">
+                  {entry.initials || "···"}
+                </span>
+                <span className="ml-auto">{entry.score}</span>
               </li>
             );
           })}

@@ -1,8 +1,10 @@
-# Mosquito Invaders
+# CaddoraGames
 
-A Space Invaders–style arcade shooter. You fly a citronella craft along the bottom of the
-screen and hold Sector 7 against descending waves of mosquitoes. React + Canvas, a custom
-`requestAnimationFrame` loop, and synthesized retro sound — no audio assets.
+An offline arcade for planes, trains and departure lounges. The shell is a cabinet floor —
+one card per game, a daily challenge, and settings that apply everywhere. **Mosquito
+Invaders** is the first cabinet: a Space Invaders–style shooter where you fly a citronella
+craft and hold Sector 7 against descending waves of mosquitoes. React + Canvas, a custom
+`requestAnimationFrame` loop, and synthesized retro sound — no audio assets, no network.
 
 **[▶ Play it](https://mactifosi.github.io/mosquito-invaders/)** — sound starts on your first
 click, as browsers require.
@@ -56,7 +58,12 @@ down cover, and creeps steadily downward — let her reach your altitude and the
 Her HP is 28 at wave 4 and rises 8 per boss tier; she fires and breeds faster as she takes
 damage. Chip damage pays 5 a hit, the kill pays 500 × your current combo multiplier.
 
-Row determines species and value:
+**Blood-fed mosquitoes** ride in the back two rows: visibly engorged, they soak the first
+hit without dying and pay triple. A **stray** crosses the top every so often — fat, pink and
+worth 150 × your multiplier if you can spare the shots.
+
+Row determines species and value. Each row also carries its own marking — a bar, one dot,
+two dots, a chevron — so species stay distinguishable without relying on hue:
 
 | Row | Species | Points |
 | --- | --- | --- |
@@ -82,6 +89,19 @@ collecting it. The choice is real either way — points now, or the power-up's e
 let it fall to you — and a stray shot during rapid fire isn't punished. Timed boosts show
 as depleting bars in the top-left of the field; an unbroken shield carries across a wave.
 
+## The daily challenge
+
+One seeded run a day, the same for everyone playing on that date, with a modifier that
+changes the rules — no cover, dive-bombers from wave 1, a queen every second wave, a single
+craft, rapid fire from the first shot, or double the blood-fed. The seed is the date, so it
+needs no server and works in airplane mode. Your run is recorded locally.
+
+## Difficulty and sound
+
+Set in the arcade, applied to every cabinet. Difficulty scales formation speed, enemy fire
+rate and how often mosquitoes break formation. The native app deliberately plays through
+the iOS Ring/Silent switch, so the **Sound** toggle is the way to keep it quiet.
+
 ## Architecture
 
 **State ownership.** The loop runs ~60×/s, so per-frame data (positions, bullets,
@@ -105,16 +125,30 @@ Everything is drawn from primitives — no sprite sheets.
 (`sfx.unlock()` on Play / Continue / Play Again), because browsers won't start audio
 otherwise. Add a sound by adding a method to the `sfx` object.
 
-**Scores** are local-only, in `localStorage` under `mosquito-invaders.scores`. Nothing else
-reads the store, so swapping `scores.js` for a backend is a three-function change.
+**Scores** are local-only, keyed per game under `caddora.scores.<game id>`, with three-letter
+initials. `src/lib/scores.js` is the only thing that touches `localStorage`, so swapping in a
+backend later is a four-function change. Runs saved by pre-arcade builds are migrated across
+on first read.
+
+**Randomness** goes through `g.rng` rather than `Math.random` wherever it affects the run,
+which is what lets the daily challenge be identical for everyone on the same date. Purely
+cosmetic randomness (thruster flicker, screen-shake offset) still uses `Math.random`.
 
 ## File map
 
 ```
 src/
-├─ pages/Home.jsx                  # the single route: cabinet ground + <Game/>
-├─ App.jsx                         # router — "/" → Home
-├─ lib/utils.js                    # cn()
+├─ App.jsx                         # routes: "/" → Arcade, "/mosquito-invaders" → the game
+├─ games/registry.js               # every cabinet in the arcade
+├─ pages/
+│  ├─ Layout.jsx                   # cabinet ground, safe areas
+│  ├─ Arcade.jsx                   # home screen: cabinets, daily challenge, settings
+│  └─ MosquitoInvaders.jsx         # hosts one cabinet
+├─ lib/
+│  ├─ scores.js                    # per-game score store
+│  ├─ settings.js                  # difficulty, sound, initials
+│  ├─ daily.js                     # seeded daily challenge
+│  └─ utils.js                     # cn()
 ├─ components/ui/button.jsx        # shadcn-style Button
 └─ components/invaders/
    ├─ Game.jsx                     # constants, makeLevel(), update(), draw(), component
@@ -124,7 +158,8 @@ src/
    ├─ Hud.jsx                      # score / wave / swarm / craft
    ├─ Overlay.jsx                  # ready · levelup · gameover screens
    ├─ Leaderboard.jsx              # ranked list
-   ├─ scores.js                    # localStorage store
+   ├─ InitialsEntry.jsx            # three-letter name entry
+   ├─ scores.js                    # binding to @/lib/scores for this game
    └─ sounds.js                    # Web Audio SFX
 ```
 
@@ -208,6 +243,7 @@ copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 
 ## Ideas not yet built
 
+- A second cabinet — the registry and per-game score keys are ready for one.
+- Move the test suite into the repo and run it in CI (it currently lives outside).
 - Backend-backed global leaderboard to supplement the local one.
 - Enemy variety — a boss swarm every N levels.
-- Settings: mute toggle, difficulty select.
