@@ -11,6 +11,7 @@ import { haptics, initHaptics } from "@/components/invaders/haptics";
 import Leaderboard from "@/components/invaders/Leaderboard";
 import InitialsEntry from "@/components/invaders/InitialsEntry";
 import { Button } from "@/components/ui/button";
+import SoundToggle from "@/components/arcade/SoundToggle";
 
 const KEY_DIRS = {
   ArrowLeft: "left", a: "left", A: "left",
@@ -183,12 +184,12 @@ export default function Piranha() {
   const remaining = game.current?.pellets.remaining ?? 0;
 
   return (
-    <div className="w-full max-w-[430px] mx-auto flex flex-col gap-2.5">
-      <div className="relative border border-[#1c5f74] bg-gradient-to-b from-[#0d3b4a] to-[#071c24] px-3.5 py-3 text-center overflow-hidden">
-        <h1 className="font-['Silkscreen',monospace] font-bold text-[clamp(20px,6.6vw,30px)] leading-none m-0 text-[#ff8a3d] drop-shadow-[0_0_12px_rgba(255,138,61,0.45)]">
+    <div className="w-full max-w-[430px] mx-auto flex flex-col gap-2">
+      <div className="relative border border-[#1c5f74] bg-gradient-to-b from-[#0d3b4a] to-[#071c24] px-3 py-2 text-center overflow-hidden">
+        <h1 className="font-['Silkscreen',monospace] font-bold text-[clamp(16px,5vw,22px)] leading-none m-0 text-[#ff8a3d] drop-shadow-[0_0_10px_rgba(255,138,61,0.4)]">
           PIRANHA
         </h1>
-        <div className="mt-1.5 text-[9.5px] tracking-[0.34em] uppercase text-[#7fb9c9]">
+        <div className="mt-1 text-[8px] tracking-[0.28em] uppercase text-[#7fb9c9]">
           One bunny · four sets of teeth
         </div>
       </div>
@@ -309,10 +310,14 @@ export default function Piranha() {
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <div className="flex items-center justify-center border border-[#1c5f74] bg-[#0d3b4a] py-4 text-[10px] text-[#7fb9c9]">
+      <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+        <div className="flex items-center justify-center border border-[#1c5f74] bg-[#0d3b4a] py-3 text-[10px] text-[#7fb9c9]">
           Swipe the water to steer
         </div>
+        <SoundToggle
+          onChange={(m) => sfx.setMuted(m)}
+          className="border border-[#1c5f74] bg-[#0d3b4a] text-[#efe6ff] px-4"
+        />
         <button
           type="button"
           aria-label={status === "paused" ? "Resume" : "Pause"}
@@ -323,9 +328,8 @@ export default function Piranha() {
         </button>
       </div>
 
-      <p className="text-[10px] leading-relaxed text-[#7fb9c9] text-center">
-        Swipe or ← ↑ → ↓ / W A S D to swim, P to pause. Eat a carrot and the piranhas flee —
-        catch one then and it&apos;s worth 200, doubling for each after.
+      <p className="text-[9px] leading-snug text-[#7fb9c9] text-center">
+        Swipe to swim · P pauses · a carrot turns the hunt around
       </p>
     </div>
   );

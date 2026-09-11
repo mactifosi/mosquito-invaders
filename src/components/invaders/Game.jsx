@@ -1537,12 +1537,12 @@ export default function Game({ daily = false }) {
   );
 
   return (
-    <div className="w-full max-w-[430px] mx-auto flex flex-col gap-2.5">
-      <div className="relative border border-[#33254a] bg-gradient-to-b from-[#221635] to-[#160e21] px-3.5 py-3 text-center overflow-hidden">
-        <h1 className="font-['Silkscreen',monospace] font-bold text-[clamp(20px,6.6vw,30px)] leading-none m-0 text-[#ffb02e] drop-shadow-[0_0_12px_rgba(255,176,46,0.45)]">
+    <div className="w-full max-w-[430px] mx-auto flex flex-col gap-2">
+      <div className="relative border border-[#33254a] bg-gradient-to-b from-[#221635] to-[#160e21] px-3 py-2 text-center overflow-hidden">
+        <h1 className="font-['Silkscreen',monospace] font-bold text-[clamp(16px,5vw,22px)] leading-none m-0 text-[#ffb02e] drop-shadow-[0_0_10px_rgba(255,176,46,0.4)]">
           MOSQUITO INVADERS
         </h1>
-        <div className="mt-1.5 text-[9.5px] tracking-[0.34em] uppercase text-[#9a8cb4]">
+        <div className="mt-1 text-[8px] tracking-[0.28em] uppercase text-[#9a8cb4]">
           Citronella Squadron · Sector 7
         </div>
       </div>
@@ -1595,9 +1595,8 @@ export default function Game({ daily = false }) {
       <TouchControls press={press} onPause={togglePause} paused={status === "paused"} />
 
 
-      <p className="text-[10px] leading-relaxed text-[#9a8cb4] text-center">
-        Drag anywhere on the field to fly — or ← → / A · D. Space fires, P pauses. Chain kills
-        without missing to raise the multiplier.
+      <p className="text-[9px] leading-snug text-[#9a8cb4] text-center">
+        Drag the field to fly · Space fires · P pauses
       </p>
     </div>
   );

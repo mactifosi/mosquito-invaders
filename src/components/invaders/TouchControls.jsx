@@ -1,6 +1,8 @@
 import React from "react";
 import { Crosshair, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SoundToggle from "@/components/arcade/SoundToggle";
+import { sfx } from "@/components/invaders/sounds";
 
 const BASE =
   "flex items-center justify-center gap-2 select-none touch-none " +
@@ -25,7 +27,7 @@ export default function TouchControls({ press, onPause, paused }) {
   });
 
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-2">
+    <div className="grid grid-cols-[1fr_auto_auto] gap-2">
       <button
         type="button"
         aria-label="Fire"
@@ -43,6 +45,7 @@ export default function TouchControls({ press, onPause, paused }) {
       >
         {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
       </button>
+      <SoundToggle onChange={(m) => sfx.setMuted(m)} className={cn(BASE, "px-3")} />
     </div>
   );
 }
