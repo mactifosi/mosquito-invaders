@@ -59,7 +59,30 @@ when the mode flips — the tell that something changed.
 
 Swipe to steer on touch, arrows or WASD on a keyboard.
 
+## Bayou Brawl
+
+The third cabinet: one on one in the reeds, the mosquito queen against the piranha. Best of
+three rounds, sixty seconds each, health and meter bars, and a finishing blow that holds the
+camera on the knockout.
+
+Moves commit you for their whole length — startup, active frames, recovery — so spacing
+beats mashing, and attacks are edge-triggered so holding a button doesn't machine-gun jabs.
+Blocking only works facing the attacker; a sweep has to be blocked crouching. A full meter
+buys a projectile special. The stage is wider than the screen and the camera pans across it,
+because fighters want horizontal room and this app is portrait.
+
+The characters and world are the arcade's own. The genre is common property; Mortal Kombat's
+characters, name and fatalities are not — and a finisher here is a dramatic knockout rather
+than anything that would push the App Store rating.
+
+`update()` takes an optional second input that drives the opponent instead of the AI. The
+suite needs it — against a live opponent, a test for "a jab lands" is really a test of
+whether the AI happened to block — and it's the seam a two-player mode would use.
+
 ## Controls
+
+Bayou Brawl: `←` `→` move, `↑` jump, `↓` crouch, `J` jab, `K` slam, `L` sweep, `I` special,
+`Space` block — or the on-screen pad and buttons.
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
