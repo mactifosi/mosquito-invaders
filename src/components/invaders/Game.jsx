@@ -424,8 +424,14 @@ export function update(dt, g, input, cb) {
   }
 
   /* ---- player ---- */
-  if (input.left) p.x -= PLAYER_SPEED * dt;
-  if (input.right) p.x += PLAYER_SPEED * dt;
+  // A finger on the field beats the keyboard: the craft tracks the drag
+  // one-to-one, which is what makes touch feel precise rather than laggy.
+  if (input.dragTarget != null) {
+    p.x = input.dragTarget;
+  } else {
+    if (input.left) p.x -= PLAYER_SPEED * dt;
+    if (input.right) p.x += PLAYER_SPEED * dt;
+  }
   p.x = Math.max(2, Math.min(W - PLAYER_W - 2, p.x));
   if (p.hitFlash > 0) p.hitFlash -= dt;
   if (p.muzzle > 0) p.muzzle -= dt;
@@ -1270,6 +1276,79 @@ export default function Game() {
     },
   };
 
+  /* Relative drag: wherever the finger lands, moving it by n px moves the craft
+     by the same n logical px. Absolute tracking would put the craft under the
+     thumb, which is exactly where you need to see. */
+  const drag = useRef(null);
+
+  const beginDrag = useCallback(
+    (clientX, rect, id) => {
+      if (statusRef.current !== "playing") return;
+      drag.current = {
+        id,
+        clientX,
+        startX: game.current.player.x,
+        scale: W / rect.width, // CSS px → logical px
+      };
+      input.current.dragTarget = game.current.player.x;
+    },
+    [input]
+  );
+
+  const moveDrag = useCallback(
+    (clientX, id) => {
+      const d = drag.current;
+      if (!d || d.id !== id) return;
+      const dx = (clientX - d.clientX) * d.scale;
+      input.current.dragTarget = Math.max(2, Math.min(W - PLAYER_W - 2, d.startX + dx));
+    },
+    [input]
+  );
+
+  const endDrag = useCallback(() => {
+    drag.current = null;
+    input.current.dragTarget = null;
+  }, [input]);
+
+  const onPointerDown = useCallback(
+    (e) => {
+      if (e.pointerType === "touch") return; // touch handlers own this below
+      beginDrag(e.clientX, e.currentTarget.getBoundingClientRect(), e.pointerId);
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    },
+    [beginDrag]
+  );
+
+  const onPointerMove = useCallback(
+    (e) => {
+      if (e.pointerType === "touch") return;
+      moveDrag(e.clientX, e.pointerId);
+    },
+    [moveDrag]
+  );
+
+  /* iOS WKWebView routes touches through its own gesture machinery and will
+     cancel a pointer stream mid-drag, which reads as the craft sticking. Touch
+     events are delivered reliably, so touch devices use them directly. */
+  const onTouchStart = useCallback(
+    (e) => {
+      const t = e.changedTouches[0];
+      if (!t) return;
+      beginDrag(t.clientX, e.currentTarget.getBoundingClientRect(), t.identifier);
+    },
+    [beginDrag]
+  );
+
+  const onTouchMove = useCallback(
+    (e) => {
+      const t = e.changedTouches[0];
+      if (!t) return;
+      if (e.cancelable) e.preventDefault(); // no rubber-banding mid-dogfight
+      moveDrag(t.clientX, t.identifier);
+    },
+    [moveDrag]
+  );
+
   useGameLoop(
     useCallback(
       (dt) => {
@@ -1295,7 +1374,17 @@ export default function Game() {
 
       <Hud score={score} level={level} swarm={swarm} lives={lives} />
 
-      <div className="relative border border-[#33254a] bg-[#0b0910] aspect-[360/540] overflow-hidden">
+      <div
+        className="relative border border-[#33254a] bg-[#0b0910] aspect-[360/540] overflow-hidden touch-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={endDrag}
+        onTouchCancel={endDrag}
+      >
         <canvas
           ref={canvasRef}
           aria-label="Mosquito Invaders play field"
@@ -1326,9 +1415,10 @@ export default function Game() {
 
       <TouchControls press={press} onPause={togglePause} paused={status === "paused"} />
 
+
       <p className="text-[10px] leading-relaxed text-[#9a8cb4] text-center">
-        ← → or A · D to fly, Space to fire, P to pause. Chain kills without missing to raise the
-        multiplier; shooting a falling power-up destroys it.
+        Drag anywhere on the field to fly — or ← → / A · D. Space fires, P pauses. Chain kills
+        without missing to raise the multiplier.
       </p>
     </div>
   );

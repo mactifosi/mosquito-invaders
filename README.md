@@ -20,9 +20,15 @@ npm run preview  # serve the build
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
-| Fly left / right | `←` `→` or `A` `D` | ◀ ▶ buttons |
+| Fly left / right | `←` `→` or `A` `D` | drag anywhere on the field |
 | Fire | `Space` | FIRE button |
+| Pause | `P` or `Esc` | pause button |
 | Start / continue | `Space` | on-screen button |
+
+Flying is a *relative* drag: wherever your thumb lands, moving it n px moves the craft n
+logical px. Absolute tracking would park the craft under your thumb, hiding the one thing
+you need to watch. A drag beats the keyboard while a finger is down, and releasing hands
+control straight back.
 
 ## Rules
 
@@ -205,4 +211,3 @@ copying `index.html` to `404.html` at build time or switching to `HashRouter`.
 - Backend-backed global leaderboard to supplement the local one.
 - Enemy variety — a boss swarm every N levels.
 - Settings: mute toggle, difficulty select.
-- Drag-to-move instead of the ◀ ▶ buttons, which suits a thumb better than discrete taps.

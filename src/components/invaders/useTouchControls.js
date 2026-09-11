@@ -19,7 +19,8 @@ const KEY_MAP = {
  * @param {() => void} handlers.onPause    P or Escape toggles pause
  */
 export function useTouchControls({ onConfirm, onPause } = {}) {
-  const input = useRef({ left: false, right: false, fire: false });
+  // dragTarget is the craft's logical x while a finger is down, null otherwise.
+  const input = useRef({ left: false, right: false, fire: false, dragTarget: null });
   const handlers = useRef({ onConfirm, onPause });
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export function useTouchControls({ onConfirm, onPause } = {}) {
       input.current.left = false;
       input.current.right = false;
       input.current.fire = false;
+      input.current.dragTarget = null;
     };
 
     window.addEventListener("keydown", down);

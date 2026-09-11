@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, Crosshair, Pause, Play } from "lucide-react";
+import { Crosshair, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BASE =
@@ -9,8 +9,9 @@ const BASE =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6fe3c0]";
 
 /**
- * On-screen controls for touch devices. Held buttons write straight into the
- * input ref via `press`, matching keyboard behavior exactly.
+ * On-screen controls for touch devices. Flying is a drag on the play field
+ * itself (see Game.jsx), so all that's left here is a fire button wide enough
+ * for a thumb, and pause.
  */
 export default function TouchControls({ press, onPause, paused }) {
   const hold = (control) => ({
@@ -24,13 +25,7 @@ export default function TouchControls({ press, onPause, paused }) {
   });
 
   return (
-    <div className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-2">
-      <button type="button" aria-label="Move left" className={cn(BASE)} {...hold("left")}>
-        <ChevronLeft className="w-5 h-5" />
-      </button>
-      <button type="button" aria-label="Move right" className={cn(BASE)} {...hold("right")}>
-        <ChevronRight className="w-5 h-5" />
-      </button>
+    <div className="grid grid-cols-[1fr_auto] gap-2">
       <button
         type="button"
         aria-label="Fire"
