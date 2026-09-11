@@ -27,16 +27,6 @@ export const GAMES = [
     ink: "#231003",
     playable: true,
   },
-  {
-    id: "brawl",
-    title: "Bayou Brawl",
-    marquee: "SECTOR 7 VS SHOAL RIVER",
-    blurb: "One on one in the reeds: the mosquito queen against the piranha. Best of three, block low or eat a sweep, and a full meter buys a special.",
-    path: "/brawl",
-    accent: "#e0384f",
-    ink: "#1a0509",
-    playable: true,
-  },
 ];
 
 export const findGame = (id) => GAMES.find((g) => g.id === id) || null;

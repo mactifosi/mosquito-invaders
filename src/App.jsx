@@ -4,7 +4,6 @@ import Layout from "@/pages/Layout";
 import Arcade from "@/pages/Arcade";
 import MosquitoInvaders from "@/pages/MosquitoInvaders";
 import PiranhaPage from "@/pages/PiranhaPage";
-import BrawlPage from "@/pages/BrawlPage";
 
 /**
  * The arcade shell. "/" is the floor; each game gets its own route so a cabinet
@@ -19,7 +18,6 @@ export default function App() {
           <Route path="/" element={<Arcade />} />
           <Route path="/mosquito-invaders" element={<MosquitoInvaders />} />
           <Route path="/piranha" element={<PiranhaPage />} />
-          <Route path="/brawl" element={<BrawlPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
