@@ -14,7 +14,8 @@
     "upload": "./scripts/upload-testflight.sh",
     "release": "npm run archive && npm run upload && npm run bump",
     "test": "node test/game.test.mjs && node test/piranha.test.mjs",
-    "device": "npm run build:native && ./scripts/device.sh"
+    "device": "npm run build:native && ./scripts/device.sh",
+    "layouts": "node scripts/render-layouts.mjs piranha-layouts.png"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",

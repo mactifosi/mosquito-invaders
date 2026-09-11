@@ -36,35 +36,17 @@ const mirror = (half) => half.split("").reverse().join("");
 /* The pen block is shared by every layout: same pen, same door, same tunnel row,
    so the actors' start positions stay valid whichever maze is in play. */
 const PEN_ROWS = [
-  ["####.###", "."], //  7  above the pen door
-  ["####.###", "-"], //  8  pen roof + door
-  ["####.#  ", " "], //  9  pen interior
-  ["####.###", "#"], // 10  pen floor
-  ["####.###", "."], // 11
+  ["#.##.###", "."], //  7  above the pen door
+  ["#.##.###", "-"], //  8  pen roof + door
+  ["#.##.#  ", " "], //  9  pen interior
+  ["#.##.###", "#"], // 10  pen floor
+  ["#.##.###", "."], // 11
   ["........", "."], // 12  tunnel: runs off both sides and wraps
-  ["####.###", "."], // 13
+  ["#.##.###", "."], // 13
 ];
 
 /* Three layouts, rotating by depth, so wave 4 isn't wave 1 with faster fish. */
 const LAYOUTS = [
-  {
-    top: [["########", "#"], ["#.......", "#"], ["#.##.##.", "#"], ["#o##.##.", "#"],
-          ["#.......", "."], ["#.##.#.#", "#"], ["#....#..", "."]],
-    bottom: [["#.......", "."], ["#o##.##.", "#"], ["#..#....", "."], ["##.#.##.", "#"],
-             ["#....#..", "."], ["#.##.##.", "#"], ["########", "#"]],
-  },
-  {
-    top: [["########", "#"], ["#.......", "."], ["#.###.#.", "#"], ["#o..#.#.", "."],
-          ["#.#.#.#.", "#"], ["#.#.....", "."], ["#.##.#.#", "."]],
-    bottom: [["#.#.....", "."], ["#o#.###.", "#"], ["#.......", "."], ["#.#####.", "#"],
-             ["#.......", "."], ["#.##.##.", "#"], ["########", "#"]],
-  },
-  {
-    top: [["########", "#"], ["#..##...", "."], ["#.#..#.#", "#"], ["#o#.##.#", "."],
-          ["#.......", "."], ["#.###.#.", "#"], ["#.....#.", "."]],
-    bottom: [["#.....#.", "."], ["#.###.#.", "#"], ["#.......", "."], ["#o#.##.#", "#"],
-             ["#.#..#.#", "."], ["#..##...", "."], ["########", "#"]],
-  },
   // Channels: long open lanes above and below the pen, crossed by a comb of
   // single-tile gaps. Fast to cover, nowhere to hide when a hunter commits.
   {

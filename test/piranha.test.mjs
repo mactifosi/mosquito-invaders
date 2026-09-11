@@ -70,6 +70,16 @@ maze.MAZES.forEach((m, i) => {
     for (let c = 0; c < maze.COLS - 1; c++)
       if ([[c,r],[c+1,r],[c,r+1],[c+1,r+1]].every(([cc, rr]) => op(cc, rr)))
         layoutFaults.push(`${i}: double lane ${c},${r}`);
+  // No wall mass thicker than two tiles: a 3x3 of solid wall is a slab, and a
+  // slab needs a lane cut through it. The pen block's corners were exactly that
+  // — four wide and five tall — in every layout at once.
+  for (let r = 0; r < maze.ROWS - 2; r++)
+    for (let c = 0; c < maze.COLS - 2; c++) {
+      let solid = true;
+      for (let dr = 0; dr < 3; dr++)
+        for (let dc = 0; dc < 3; dc++) if (m[r + dr][c + dc] !== "#") solid = false;
+      if (solid) layoutFaults.push(`${i}: wall slab ${c},${r}`);
+    }
   // Reachability, with the tunnel wrapping — an unclearable layout is a dead end
   // that only shows up when a player gets to that depth.
   const seen = new Set();
@@ -89,7 +99,7 @@ maze.MAZES.forEach((m, i) => {
     for (let c = 0; c < maze.COLS; c++)
       if ("o.".includes(m[r][c]) && !seen.has(`${c},${r}`)) layoutFaults.push(`${i}: orphan ${c},${r}`);
 });
-check("every layout is symmetric, clearable and has a tunnel and a pen door",
+check("every layout: symmetric, clearable, single lanes, no wall slabs",
   layoutFaults.length === 0,
   layoutFaults.slice(0, 3).join(" | ") || `all ${maze.MAZES.length} clean`);
 

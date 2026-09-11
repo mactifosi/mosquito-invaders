@@ -37,10 +37,15 @@ The second cabinet: a maze under the waterline. A bunny eats algae; four piranha
 Eat a carrot and for seven seconds they flee instead — catch one then and it pays 200,
 doubling for each after within the same carrot.
 
-**Six layouts rotate by depth**, so depth 4 isn't depth 1 with faster fish — blocks and
-lanes (1–3), then channels, reeds and a basin of concentric rings (4–6). They share a
+**Three layouts rotate by depth** — channels, reeds, and a basin of concentric rings — so
+depth 4 isn't depth 1 with faster fish. `npm run layouts` renders them all to a PNG contact
+sheet without opening the app. They share a
 pen block — same pen, same door, same tunnel row — so the actors' start positions hold
 whichever maze is in play.
+
+No wall mass is thicker than two tiles: a 3x3 of solid wall is a slab that needs a lane cut
+through it, and the suite fails on one. That's also why every maze has an outer ring — the
+pen block's corners used to be four wide and five tall.
 
 Two things reward playing on the edge rather than safely: slipping **within a tile of a
 hunter** scores a near miss (once per pass, not per frame), and eating **all four fish on a
