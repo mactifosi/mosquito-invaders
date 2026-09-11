@@ -37,7 +37,8 @@ The second cabinet: a maze under the waterline. A bunny eats algae; four piranha
 Eat a carrot and for seven seconds they flee instead — catch one then and it pays 200,
 doubling for each after within the same carrot.
 
-**Three layouts rotate by depth**, so depth 4 isn't depth 1 with faster fish. They share a
+**Six layouts rotate by depth**, so depth 4 isn't depth 1 with faster fish — blocks and
+lanes (1–3), then channels, reeds and a basin of concentric rings (4–6). They share a
 pen block — same pen, same door, same tunnel row — so the actors' start positions hold
 whichever maze is in play.
 

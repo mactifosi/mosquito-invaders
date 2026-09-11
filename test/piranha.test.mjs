@@ -50,12 +50,13 @@ const step = (g, c, input = {}, seconds = 1, dt = 1 / 60) => {
 };
 
 /* ---- every layout, not just the first ---- */
-check("three layouts rotate by depth",
-  maze.MAZES.length === 3 &&
+const N = maze.MAZES.length;
+check("layouts rotate by depth and wrap round",
+  N >= 3 &&
     maze.mazeForLevel(1) === maze.MAZES[0] &&
-    maze.mazeForLevel(4) === maze.MAZES[0] &&
+    maze.mazeForLevel(N + 1) === maze.MAZES[0] &&
     maze.mazeForLevel(2) !== maze.mazeForLevel(3),
-  `${maze.MAZES.length} layouts`);
+  `${N} layouts`);
 
 const layoutFaults = [];
 maze.MAZES.forEach((m, i) => {
@@ -89,7 +90,8 @@ maze.MAZES.forEach((m, i) => {
       if ("o.".includes(m[r][c]) && !seen.has(`${c},${r}`)) layoutFaults.push(`${i}: orphan ${c},${r}`);
 });
 check("every layout is symmetric, clearable and has a tunnel and a pen door",
-  layoutFaults.length === 0, layoutFaults.slice(0, 3).join(" | ") || "all three clean");
+  layoutFaults.length === 0,
+  layoutFaults.slice(0, 3).join(" | ") || `all ${maze.MAZES.length} clean`);
 
 /* ---- the maze ---- */
 check("every row is the declared width",
