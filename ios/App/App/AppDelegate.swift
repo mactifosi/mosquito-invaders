@@ -1,4 +1,5 @@
 import UIKit
+import AVFoundation
 import Capacitor
 
 @UIApplicationMain
@@ -7,8 +8,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        configureAudioSession()
         return true
+    }
+
+    /// WKWebView plays Web Audio through an ambient session, which iOS silences
+    /// when the Ring/Silent switch is off — so the game was mute on a phone that
+    /// looked fine. `.playback` plays regardless of that switch, and
+    /// `.mixWithOthers` means starting a run doesn't cut off a podcast, which
+    /// matters for an app meant for long flights.
+    private func configureAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            // Not fatal: the game is perfectly playable silent.
+            print("Audio session setup failed: \(error)")
+        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
