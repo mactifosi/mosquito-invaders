@@ -6,6 +6,7 @@ import { allHighScores } from "@/lib/scores";
 import { loadSettings, saveSettings, DIFFICULTIES } from "@/lib/settings";
 import { dailyChallenge, dailyResult } from "@/lib/daily";
 import SoundToggle from "@/components/arcade/SoundToggle";
+import Avatar from "@/components/arcade/Avatar";
 
 /**
  * The arcade floor: one cabinet per game, today's challenge, and the settings
@@ -73,51 +74,45 @@ export default function Arcade() {
         </div>
       </section>
 
-      {/* The cabinets */}
-      {GAMES.map((game) => (
-        <article key={game.id} className="border border-[#33254a] bg-[#0f0a17]">
-          <div
-            className="px-2.5 py-1.5 border-b border-[#33254a]"
-            style={{ background: "linear-gradient(180deg,#221635,#160e21)" }}
+      {/* The cabinets: one tile each, two to a row, so the floor grows by rows. */}
+      <section className="grid grid-cols-2 gap-2">
+        {GAMES.map((game) => (
+          <Link
+            key={game.id}
+            to={game.path}
+            aria-label={`Play ${game.title}`}
+            className="group flex flex-col border border-[#33254a] bg-[#150e20] p-1.5 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6fe3c0]"
           >
+            <Avatar
+              game={game}
+              className="block w-full aspect-square [image-rendering:auto] border border-[#0b0910]"
+            />
             <h3
-              className="font-['Silkscreen',monospace] text-[14px] m-0 leading-none"
+              className="font-['Silkscreen',monospace] text-[11px] leading-tight m-0 mt-1.5 truncate"
               style={{ color: game.accent }}
             >
               {game.title}
             </h3>
-            <p className="text-[7.5px] tracking-[0.2em] uppercase text-[#9a8cb4] mt-1">
-              {game.marquee}
+            <p className="text-[10px] leading-snug text-[#9a8cb4] m-0 mt-0.5 line-clamp-2 min-h-[2lh]">
+              {game.tagline}
             </p>
-          </div>
-
-          <div className="px-2.5 py-2 flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] leading-snug text-[#9a8cb4] m-0 line-clamp-2">
-                {game.blurb}
-              </p>
-              <div className="flex items-center gap-1.5 text-[10px] text-[#9a8cb4] mt-1.5">
-                <Trophy className="w-3 h-3 text-[#ffb02e]" />
-                <span>Best</span>
-                <span className="font-['Silkscreen',monospace] text-[12px] text-[#efe6ff] tabular-nums">
-                  {highs[game.id] || 0}
-                </span>
-              </div>
+            <div className="flex items-center gap-1 mt-1">
+              <Trophy className="w-3 h-3 text-[#ffb02e] shrink-0" />
+              <span className="font-['Silkscreen',monospace] text-[11px] text-[#efe6ff] tabular-nums truncate">
+                {(highs[game.id] || 0).toLocaleString()}
+              </span>
             </div>
-            <Link
-              to={game.path}
-              className="shrink-0 font-['Silkscreen',monospace] text-[11px] px-3.5 py-2 shadow-[0_2px_0_#8a5200] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6fe3c0]"
-              style={{ background: game.accent, color: game.ink }}
-            >
-              PLAY
-            </Link>
-          </div>
-        </article>
-      ))}
+          </Link>
+        ))}
 
-      <div className="border border-dashed border-[#33254a] px-2.5 py-2 text-center">
-        <p className="text-[9.5px] text-[#9a8cb4] m-0">Cabinet 3 · empty — the next game plugs in here.</p>
-      </div>
+        {/* Keeps the last row even, and says the floor isn't finished. */}
+        {GAMES.length % 2 === 1 && (
+          <div className="flex flex-col items-center justify-center gap-1 border border-dashed border-[#33254a] p-1.5 text-center">
+            <span className="font-['Silkscreen',monospace] text-[22px] leading-none text-[#5b4d74]">+</span>
+            <p className="text-[10px] text-[#9a8cb4] m-0">More cabinets soon</p>
+          </div>
+        )}
+      </section>
 
       {/* Settings, on one line each */}
       <section className="border border-[#33254a] bg-[#170f22] px-2.5 py-2 flex items-center gap-2">

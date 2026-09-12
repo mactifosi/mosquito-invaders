@@ -3,13 +3,14 @@
  *
  * One entry per game. The shell reads this to build the home screen, so adding
  * a game is: build it under src/components/<game>/, add a route in App.jsx, and
- * add it here. `id` is also its score-store key, so it must not change once
+ * add it here — with a drawing in @/components/arcade/Avatar if it has one. `id` is also its score-store key, so it must not change once
  * anyone has played — see @/lib/scores.
  */
 export const GAMES = [
   {
     id: "mosquito-invaders",
     title: "Mosquito Invaders",
+    tagline: "Swat the swarm before it lands",
     marquee: "CITRONELLA SQUADRON · SECTOR 7",
     blurb: "Hold the line against descending waves of mosquitoes. Bunkers erode, divers swoop, and every fourth wave brings the queen.",
     path: "/mosquito-invaders",
@@ -20,6 +21,7 @@ export const GAMES = [
   {
     id: "piranha",
     title: "Piranha",
+    tagline: "Munch carrots, dodge the fish",
     marquee: "SHOAL RIVER · ONE BUNNY",
     blurb: "A maze of algae under the waterline, and four piranhas hunting the bunny eating it. Swallow a carrot and, for seven seconds, they're the ones running.",
     path: "/piranha",
@@ -30,6 +32,7 @@ export const GAMES = [
   {
     id: "skimmer",
     title: "Skimmer",
+    tagline: "Skim stones, smash egg rafts",
     marquee: "STILL WATER · EGG RAFTS",
     blurb: "Skim a stone off the punt and break every raft of mosquito eggs. The red ones are hatching — leave one too long and something gets out.",
     path: "/skimmer",
