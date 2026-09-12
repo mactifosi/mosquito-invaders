@@ -23,4 +23,26 @@
   body {
     touch-action: manipulation;
   }
+
+  /*
+   * A game is dragged on, not read. Without this, a drag across the play field
+   * grabs the nearest text — the HUD labels — and iOS throws up Copy / Look Up /
+   * Translate over the game, and taps flash a highlight box round whatever they
+   * land on.
+   */
+  html,
+  body,
+  #root {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ...except where text really is being entered: the initials box. */
+  input,
+  textarea {
+    user-select: text;
+    -webkit-user-select: text;
+  }
 }
