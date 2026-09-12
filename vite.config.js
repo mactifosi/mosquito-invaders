@@ -20,9 +20,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
-        name: "Mosquito Invaders",
-        short_name: "Mosquito",
-        description: "Hold Sector 7 against descending waves of mosquitoes.",
+        name: "Pocket Arcade",
+        short_name: "Pocket Arcade",
+        description: "An offline retro arcade for travelling.",
         start_url: base,
         scope: base,
         display: "standalone",

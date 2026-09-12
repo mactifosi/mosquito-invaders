@@ -1,4 +1,4 @@
-# CaddoraGames
+# Pocket Arcade
 
 An offline arcade for planes, trains and departure lounges. The shell is a cabinet floor —
 one card per game, a daily challenge, and settings that apply everywhere. **Mosquito
@@ -245,7 +245,7 @@ airplane-safe. Sound needs one tap to start, per browser autoplay policy.
 ## iOS app
 
 The game also ships as a native iOS app (Capacitor), published to TestFlight as
-**CaddoraGames** (`com.caddora.games`). `npm run ios` builds the web assets, syncs them into
+**Pocket Arcade: Travel Games** (`com.caddora.games`; on the home screen as *Pocket Arcade*). `npm run ios` builds the web assets, syncs them into
 the native project and opens Xcode; `npm run archive` produces a distributable archive.
 
 ### Onto a phone, quickly

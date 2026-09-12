@@ -1,6 +1,6 @@
 {
   "appId": "com.caddora.games",
-  "appName": "CaddoraGames",
+  "appName": "Pocket Arcade",
   "webDir": "dist",
   "backgroundColor": "#060409",
   "ios": {

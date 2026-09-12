@@ -28,7 +28,7 @@ export default function Arcade() {
       <header className="relative border border-[#33254a] bg-gradient-to-b from-[#221635] to-[#160e21] px-3 py-2.5 overflow-hidden flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="font-['Silkscreen',monospace] font-bold text-[clamp(15px,4.6vw,20px)] leading-none m-0 text-[#ffb02e] drop-shadow-[0_0_10px_rgba(255,176,46,0.4)]">
-            CADDORA GAMES
+            POCKET ARCADE
           </h1>
           <p className="mt-1 text-[8px] tracking-[0.24em] uppercase text-[#9a8cb4] truncate">
             Offline arcade · for travelling
